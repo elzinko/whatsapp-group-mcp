@@ -1,9 +1,9 @@
 {
   "name": "whatsapp-group-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Serveur MCP lisant/écrivant UN seul groupe WhatsApp, pour Claude Desktop. Basé sur Baileys (WhatsApp Web).",
+  "description": "Serveur MCP lisant, en LECTURE SEULE, les groupes WhatsApp que tu autorises explicitement. Basé sur Baileys (WhatsApp Web).",
   "main": "src/index.js",
   "bin": {
     "whatsapp-group-mcp": "src/index.js"
@@ -11,8 +11,9 @@
   "scripts": {
     "start": "node src/index.js",
     "list-groups": "node scripts/list-groups.js",
-    "test": "node test/store-persistence.js && node test/mcp-smoke.js",
+    "test": "node test/store-persistence.js && node test/grants.js && node test/mcp-smoke.js",
     "test:store": "node test/store-persistence.js",
+    "test:grants": "node test/grants.js",
     "test:mcp": "node test/mcp-smoke.js"
   },
   "engines": {

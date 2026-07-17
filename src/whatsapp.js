@@ -1,6 +1,10 @@
 // Enveloppe autour de Baileys (protocole WhatsApp Web).
 // IMPORTANT : tout ce qui est log/QR est écrit sur STDERR.
 // STDOUT est réservé au protocole MCP (JSON-RPC) ; y écrire le corromprait.
+//
+// LECTURE SEULE : ce client ne sait pas envoyer de message. Il n'y a pas de méthode
+// d'envoi, pas de drapeau pour l'activer. Voir docs/adr/0001-modele-d-acces-aux-canaux.md
+// pour le contrat à respecter le jour où l'écriture reviendra.
 
 import fs from "node:fs";
 import makeWASocket, {
@@ -12,7 +16,8 @@ import makeWASocket, {
 import pino from "pino";
 import qrcode from "qrcode-terminal";
 
-import { dataFileFor } from "./config.js";
+import { dataFileFor, isGroupJid } from "./config.js";
+import { MessageStore } from "./store.js";
 
 // Log applicatif -> stderr
 export function log(...args) {
@@ -55,30 +60,42 @@ function normalize(s) {
 }
 
 export class WhatsAppClient {
-  constructor(config, store) {
+  constructor(config, settings) {
     this.config = config;
-    this.store = store;
+    this.settings = settings; // Settings : la source de vérité des canaux autorisés
     this.sock = null;
     this.state = "starting"; // starting | qr | connecting | open | closed
     this.lastQR = null;
     this.startedAt = Date.now();
-    // JID effectif du groupe autorisé (peut être résolu par nom à la connexion)
-    this.groupId = config.groupId || null;
-    this.groupName = config.groupName || null;
-    this._persistAttached = false;
+    this.stores = new Map(); // jid -> MessageStore (un tampon + une archive par canal)
+    this.knownGroups = new Map(); // jid -> nom, snapshot du dernier fetch
   }
 
   isReady() {
     return this.state === "open" && !!this.sock;
   }
 
-  // Attache la persistance disque dès que le JID du groupe est connu.
-  _attachPersistence() {
-    if (this._persistAttached || !this.config.persist || !this.groupId) return;
-    const file = dataFileFor(this.groupId);
-    const loaded = this.store.attachFile(file);
-    this._persistAttached = true;
-    log(`Persistance activée: ${loaded} message(s) chargé(s) depuis ${file}`);
+  // Tampon d'un canal, créé à la demande et rattaché à son archive JSONL.
+  _storeFor(jid) {
+    let store = this.stores.get(jid);
+    if (store) return store;
+    store = new MessageStore(this.config.maxMessages);
+    if (this.config.persist) {
+      const file = dataFileFor(jid);
+      const loaded = store.attachFile(file);
+      log(`Canal ${jid} : ${loaded} message(s) rechargé(s) depuis ${file}`);
+    }
+    this.stores.set(jid, store);
+    return store;
+  }
+
+  // 1re barrière : rien de ce qui n'est pas explicitement autorisé n'entre,
+  // ni en mémoire ni sur disque.
+  _ingest(waMessage) {
+    const jid = waMessage?.key?.remoteJid;
+    if (!jid || !this.settings.has(jid)) return;
+    const rec = toRecord(waMessage);
+    if (rec.id) this._storeFor(jid).add(rec);
   }
 
   async start() {
@@ -90,9 +107,9 @@ export class WhatsAppClient {
       version = undefined; // Baileys utilisera une version par défaut
     }
 
-    // Si le JID est déjà connu (via .env), on charge l'archive tout de suite,
-    // avant même la connexion, pour disposer de l'historique persistant.
-    this._attachPersistence();
+    // Les archives des canaux déjà autorisés sont rechargées avant même la connexion :
+    // get_recent_messages répond dès le démarrage, sans attendre WhatsApp.
+    for (const g of this.settings.list()) this._storeFor(g.jid);
 
     const sock = makeWASocket({
       version,
@@ -112,7 +129,9 @@ export class WhatsAppClient {
       if (qr) {
         this.state = "qr";
         this.lastQR = qr;
-        log("Scanne ce QR code avec WhatsApp (Appareils connectés) :");
+        log("Scanne ce QR code depuis ton TÉLÉPHONE :");
+        log("  iPhone  : WhatsApp > Réglages > Appareils liés > Lier un appareil");
+        log("  Android : WhatsApp > ⋮ > Appareils connectés > Connecter un appareil");
         // qrcode-terminal écrit par défaut sur stdout -> on redirige vers stderr
         qrcode.generate(qr, { small: true }, (art) => process.stderr.write(art + "\n"));
       }
@@ -125,14 +144,23 @@ export class WhatsAppClient {
         this.lastQR = null;
         log("Connecté à WhatsApp.");
         try {
-          await this._resolveGroupByName();
+          await this._refreshGroups();
+          this._revalidateGrants();
+          this._bootstrapFromEnv();
         } catch (e) {
-          log("Résolution du groupe par nom impossible:", e?.message);
+          log("Initialisation des canaux impossible :", e?.message);
         }
-        this._attachPersistence();
-        if (!this.groupId) {
+        for (const g of this.settings.list()) this._storeFor(g.jid);
+        if (this.settings.grants.size === 0) {
           log(
-            "Aucun groupe défini. Utilise 'list_groups' (ou scripts/list-groups.js) pour trouver le JID, puis renseigne WHATSAPP_GROUP_ID (ou WHATSAPP_GROUP_NAME) dans .env."
+            "Aucun canal autorisé. Demande à ton LLM : « liste mes groupes WhatsApp » puis « autorise <nom> »."
+          );
+        } else {
+          log(
+            `Canaux autorisés en lecture : ${this.settings
+              .list()
+              .map((g) => `« ${g.subject || g.jid} »`)
+              .join(", ")}`
           );
         }
       }
@@ -147,6 +175,7 @@ export class WhatsAppClient {
           try {
             fs.rmSync(this.config.authDir, { recursive: true, force: true });
             log("Session effacée. Relance le serveur pour ré-appairer.");
+            log("Les canaux autorisés sont conservés dans settings.json.");
           } catch {}
         }
       }
@@ -165,69 +194,173 @@ export class WhatsAppClient {
     return this;
   }
 
-  // Résout le JID à partir du nom de groupe (WHATSAPP_GROUP_NAME) si le JID n'est pas déjà connu.
-  async _resolveGroupByName() {
-    if (this.groupId || !this.groupName) return;
+  // Rafraîchit le snapshot des groupes du compte. Renvoie les métadonnées brutes.
+  async _refreshGroups() {
     const all = await this.sock.groupFetchAllParticipating();
-    const target = normalize(this.groupName);
-    const match = Object.values(all).find((g) => normalize(g.subject) === target);
-    if (match) {
-      this.groupId = match.id;
-      log(`Groupe "${this.groupName}" résolu -> ${match.id}`);
-    } else {
-      const noms = Object.values(all).map((g) => g.subject).join(", ");
-      log(`Groupe "${this.groupName}" introuvable. Groupes disponibles: ${noms || "(aucun)"}`);
+    this.knownGroups = new Map(Object.values(all).map((g) => [g.id, g.subject]));
+    return all;
+  }
+
+  // Revérification au démarrage : un grant dont le groupe a disparu (ou dont le compte
+  // n'est plus membre) est purgé. Un groupe renommé voit son nom rafraîchi.
+  _revalidateGrants() {
+    for (const g of this.settings.list()) {
+      if (!this.knownGroups.has(g.jid)) {
+        this.settings.revoke(g.jid);
+        this.stores.delete(g.jid);
+        log(`Grant purgé (groupe inaccessible ou compte non membre) : « ${g.subject || "?"} » (${g.jid})`);
+        continue;
+      }
+      const current = this.knownGroups.get(g.jid);
+      if (current && current !== g.subject) {
+        this.settings.grant(g.jid, current);
+        log(`Groupe renommé : « ${g.subject} » -> « ${current} »`);
+      }
     }
   }
 
-  // Ne stocke QUE les messages du groupe autorisé.
-  _ingest(waMessage) {
-    if (!this.groupId) return;
-    const jid = waMessage?.key?.remoteJid;
-    if (jid !== this.groupId) return;
-    const rec = toRecord(waMessage);
-    if (rec.id) this.store.add(rec);
+  // Amorçage : convertit un WHATSAPP_GROUP_ID/NAME hérité en grant, une seule fois.
+  // Dès qu'un grant existe, settings.json fait foi et l'env n'est plus consulté.
+  _bootstrapFromEnv() {
+    if (this.settings.grants.size > 0) return;
+    const wanted = this.config.groupId || this.config.groupName;
+    if (!wanted) return;
+
+    let jid = null;
+    if (isGroupJid(this.config.groupId)) {
+      jid = this.knownGroups.has(this.config.groupId) ? this.config.groupId : null;
+    } else {
+      const target = normalize(this.config.groupName);
+      for (const [id, subject] of this.knownGroups) {
+        if (normalize(subject) === target) {
+          jid = id;
+          break;
+        }
+      }
+    }
+
+    if (!jid) {
+      log(`Amorçage .env : groupe « ${wanted} » introuvable. Utilise 'list_groups' puis 'grant_channel'.`);
+      return;
+    }
+    const subject = this.knownGroups.get(jid);
+    this.settings.grant(jid, subject);
+    this._storeFor(jid);
+    log(`Amorçage depuis .env : « ${subject} » autorisé en lecture (${jid}).`);
   }
 
-  // Liste des groupes dont le compte est membre (id + nom). Pas de contenu de messages.
+  // Résout un JID ou un nom exact de groupe vers un JID.
+  // Les canaux déjà autorisés sont résolvables même hors connexion.
+  _resolveToJid(channel) {
+    const raw = String(channel || "").trim();
+    if (!raw) throw new Error("Aucun canal fourni.");
+    if (isGroupJid(raw)) return raw;
+
+    const target = normalize(raw);
+    for (const g of this.settings.list()) {
+      if (normalize(g.subject) === target) return g.jid;
+    }
+    const matches = [...this.knownGroups.entries()].filter(([, s]) => normalize(s) === target);
+    if (matches.length === 1) return matches[0][0];
+    if (matches.length > 1) {
+      throw new Error(`Plusieurs groupes s'appellent « ${raw} » : utilise le JID exact (…@g.us).`);
+    }
+    throw new Error(`Groupe « ${raw} » introuvable. Utilise 'list_groups' pour voir les noms et JID.`);
+  }
+
+  // Le « menu » : tous les groupes du compte, avec leur état d'autorisation.
+  // Ne renvoie aucun contenu de message.
   async listGroups() {
     if (!this.isReady()) throw new Error("WhatsApp non connecté (scanne d'abord le QR code).");
-    const all = await this.sock.groupFetchAllParticipating();
-    return Object.values(all).map((g) => ({
-      id: g.id,
-      subject: g.subject,
-      participants: Array.isArray(g.participants) ? g.participants.length : undefined,
-      isAllowed: g.id === this.groupId,
-    }));
+    const all = await this._refreshGroups();
+    return Object.values(all)
+      .map((g) => ({
+        id: g.id,
+        subject: g.subject,
+        participants: Array.isArray(g.participants) ? g.participants.length : undefined,
+        granted: this.settings.has(g.id),
+      }))
+      .sort((a, b) => (a.subject || "").localeCompare(b.subject || ""));
   }
 
-  // Envoi de texte, UNIQUEMENT vers le groupe autorisé et seulement si allowSend=true.
-  async sendMessage(text) {
+  // Autorise la LECTURE d'un canal. Le nom mémorisé est toujours celui résolu par
+  // Baileys, jamais celui fourni par l'appelant (ADR-0001).
+  async grantChannel(channel) {
     if (!this.isReady()) throw new Error("WhatsApp non connecté (scanne d'abord le QR code).");
-    if (!this.config.allowSend) throw new Error("Envoi désactivé (WHATSAPP_ALLOW_SEND=false).");
-    if (!this.groupId) throw new Error("Aucun groupe autorisé défini.");
-    const res = await this.sock.sendMessage(this.groupId, { text: String(text) });
-    return { id: res?.key?.id, groupId: this.groupId };
+    await this._refreshGroups();
+    const jid = this._resolveToJid(channel);
+    if (!this.knownGroups.has(jid)) {
+      throw new Error(`Groupe inconnu, ou le compte n'en est pas membre : ${jid}`);
+    }
+    const subject = this.knownGroups.get(jid);
+    this.settings.grant(jid, subject);
+    this._storeFor(jid);
+    log(`Grant LECTURE accordé : « ${subject} » (${jid})`);
+    return { jid, subject, scope: "read", granted: true };
+  }
+
+  // Retire l'autorisation. L'archive disque déjà écrite n'est pas supprimée.
+  revokeChannel(channel) {
+    const jid = this._resolveToJid(channel);
+    const subject = this.settings.grants.get(jid)?.subject || null;
+    if (!this.settings.revoke(jid)) throw new Error(`Ce canal n'est pas autorisé : ${jid}`);
+    this.stores.delete(jid);
+    log(`Grant révoqué : « ${subject || jid} » (${jid})`);
+    return { jid, subject, revoked: true };
+  }
+
+  // Messages récents d'UN canal autorisé. Si `channel` est omis et qu'un seul canal
+  // est autorisé, c'est lui. Sinon il faut choisir explicitement.
+  recentFor(channel, limit = 50) {
+    const granted = this.settings.list();
+    let jid;
+    if (channel) {
+      jid = this._resolveToJid(channel);
+      if (!this.settings.has(jid)) {
+        throw new Error(`Canal non autorisé : ${jid}. Utilise 'grant_channel' d'abord.`);
+      }
+    } else if (granted.length === 1) {
+      jid = granted[0].jid;
+    } else if (granted.length === 0) {
+      throw new Error(
+        "Aucun canal autorisé. Utilise 'list_groups' pour voir tes groupes, puis 'grant_channel'."
+      );
+    } else {
+      const noms = granted.map((g) => `« ${g.subject || g.jid} »`).join(", ");
+      throw new Error(`Plusieurs canaux autorisés : précise 'channel' parmi ${noms}.`);
+    }
+    const store = this._storeFor(jid);
+    return {
+      jid,
+      subject: this.settings.grants.get(jid)?.subject || null,
+      messages: store.recent(limit),
+      buffered: store.size(),
+    };
   }
 
   status() {
+    const granted = this.settings.list();
     return {
       state: this.state,
       connected: this.isReady(),
-      groupConfigured: !!this.groupId,
-      groupId: this.groupId || null,
-      groupName: this.groupName || null,
-      allowSend: this.config.allowSend,
-      persistence: this._persistAttached
-        ? { enabled: true, file: dataFileFor(this.groupId) }
+      // Ce serveur ne sait pas envoyer : il n'existe aucune méthode d'envoi (ADR-0001).
+      readOnly: true,
+      grantedChannels: granted.map((g) => ({
+        jid: g.jid,
+        subject: g.subject,
+        scope: g.scope,
+        messagesBuffered: this.stores.get(g.jid)?.size() ?? 0,
+      })),
+      persistence: this.config.persist
+        ? { enabled: true, dir: this.config.dataDir }
         : { enabled: false },
-      messagesBuffered: this.store.size(),
+      settingsFile: this.config.settingsFile,
       uptimeSeconds: Math.floor((Date.now() - this.startedAt) / 1000),
       hint:
         this.state === "qr"
-          ? "Un QR code est affiché dans les logs : scanne-le depuis WhatsApp > Appareils connectés."
-          : !this.groupId && this.groupName
-            ? `En attente de connexion pour résoudre le groupe "${this.groupName}".`
+          ? "Un QR code est affiché dans les logs : scanne-le depuis ton téléphone (iPhone : Réglages > Appareils liés ; Android : ⋮ > Appareils connectés)."
+          : granted.length === 0
+            ? "Aucun canal autorisé : appelle 'list_groups' puis 'grant_channel'."
             : undefined,
     };
   }

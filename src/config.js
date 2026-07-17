@@ -46,19 +46,26 @@ const dataDir = process.env.WHATSAPP_DATA_DIR
   ? path.resolve(projectRoot, process.env.WHATSAPP_DATA_DIR)
   : path.join(projectRoot, "data");
 
+// Réglages persistants (canaux autorisés). Volontairement hors de authDir, qui est
+// effacé au logout WhatsApp, et hors de dataDir, qui est l'archive des messages.
+const settingsFile = process.env.WHATSAPP_SETTINGS_FILE
+  ? path.resolve(projectRoot, process.env.WHATSAPP_SETTINGS_FILE)
+  : path.join(projectRoot, "settings.json");
+
 export const config = {
   projectRoot,
-  // JID du seul groupe autorisé (ex: "1203630xxxxxxxxxx@g.us"). Vide = non défini.
+  // Amorçage uniquement : au tout premier démarrage, si aucun grant n'existe encore,
+  // ce groupe est converti en grant de lecture. Ensuite, settings.json fait foi et
+  // ces variables ne servent plus à rien (voir ADR-0001).
   groupId: (process.env.WHATSAPP_GROUP_ID || "").trim(),
-  // Alternative : nom exact du groupe (ex: "Copro reine blanche"). Résolu en JID à la connexion.
-  // Utile quand on ne connaît pas encore le JID. groupId a la priorité s'il est renseigné.
   groupName: (process.env.WHATSAPP_GROUP_NAME || "").trim(),
-  allowSend: bool(process.env.WHATSAPP_ALLOW_SEND, false),
+  // Taille du tampon mémoire, PAR canal autorisé (le disque garde tout).
   maxMessages: Number.parseInt(process.env.WHATSAPP_MAX_MESSAGES || "500", 10) || 500,
   // Persistance des messages sur disque (archive JSONL, survit aux redémarrages).
   persist: bool(process.env.WHATSAPP_PERSIST, true),
   authDir,
   dataDir,
+  settingsFile,
 };
 
 // Un JID de groupe WhatsApp se termine toujours par "@g.us".

@@ -1,6 +1,11 @@
 #!/usr/bin/env node
-// Serveur MCP (stdio) exposant UN SEUL groupe WhatsApp à Claude Desktop.
-// Sécurité : toute lecture/écriture est verrouillée sur WHATSAPP_GROUP_ID.
+// Serveur MCP (stdio) exposant en LECTURE SEULE les groupes WhatsApp explicitement
+// autorisés. Voir docs/adr/0001-modele-d-acces-aux-canaux.md
+//
+// Deux barrières :
+//   1. l'ingestion ne retient que les canaux autorisés (whatsapp.js#_ingest) ;
+//   2. les outils ne lisent que dans ces mêmes canaux.
+// Il n'existe aucun outil d'envoi : ce serveur ne peut pas écrire sur WhatsApp.
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -10,33 +15,71 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { config } from "./config.js";
-import { MessageStore } from "./store.js";
+import { Settings } from "./settings.js";
 import { WhatsAppClient, log } from "./whatsapp.js";
 
-const store = new MessageStore(config.maxMessages);
-const wa = new WhatsAppClient(config, store);
+const settings = new Settings(config.settingsFile).load();
+const wa = new WhatsAppClient(config, settings);
 
 // --- Définition des outils MCP ---
 const TOOLS = [
   {
     name: "whatsapp_status",
     description:
-      "État de la connexion WhatsApp (connecté ou non, groupe configuré, envoi autorisé, nombre de messages en mémoire). À appeler en premier pour savoir s'il faut scanner le QR code.",
+      "État de la connexion WhatsApp, canaux autorisés en lecture, messages en mémoire. À appeler en premier pour savoir s'il faut scanner le QR code ou autoriser un canal.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
     name: "list_groups",
     description:
-      "Liste les groupes WhatsApp dont le compte est membre (id/JID + nom). Sert UNE fois à trouver le JID du groupe à mettre dans WHATSAPP_GROUP_ID. Ne renvoie aucun message.",
+      "Liste les groupes WhatsApp dont le compte est membre (id/JID, nom, et s'ils sont déjà autorisés). C'est le menu : à utiliser pour choisir un canal à autoriser. Ne renvoie aucun message.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "grant_channel",
+    description:
+      "Autorise la LECTURE d'un groupe, de façon persistante (survit aux redémarrages). N'accorde jamais le droit d'écrire : ce serveur ne peut pas envoyer de message. Utilise 'list_groups' avant pour connaître les noms/JID exacts.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channel: {
+          type: "string",
+          minLength: 1,
+          description: "JID du groupe (…@g.us) ou son nom exact.",
+        },
+      },
+      required: ["channel"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "revoke_channel",
+    description:
+      "Retire l'autorisation de lecture d'un groupe. Les messages déjà archivés sur disque ne sont pas supprimés.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channel: {
+          type: "string",
+          minLength: 1,
+          description: "JID du groupe (…@g.us) ou son nom exact.",
+        },
+      },
+      required: ["channel"],
+      additionalProperties: false,
+    },
   },
   {
     name: "get_recent_messages",
     description:
-      "Renvoie les messages récents du SEUL groupe autorisé (WHATSAPP_GROUP_ID), du plus ancien au plus récent. Ne peut pas lire d'autres groupes.",
+      "Messages récents d'UN canal autorisé, du plus ancien au plus récent. Si un seul canal est autorisé, 'channel' est optionnel. Pour analyser plusieurs canaux, appeler cet outil une fois par canal.",
     inputSchema: {
       type: "object",
       properties: {
+        channel: {
+          type: "string",
+          description: "JID (…@g.us) ou nom exact. Optionnel si un seul canal est autorisé.",
+        },
         limit: {
           type: "integer",
           minimum: 1,
@@ -44,19 +87,6 @@ const TOOLS = [
           description: "Nombre max de messages à renvoyer (défaut 50).",
         },
       },
-      additionalProperties: false,
-    },
-  },
-  {
-    name: "send_message",
-    description:
-      "Envoie un message texte dans le SEUL groupe autorisé. Fonctionne uniquement si WHATSAPP_ALLOW_SEND=true. Ne peut cibler aucun autre destinataire.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        text: { type: "string", minLength: 1, description: "Le texte à envoyer." },
-      },
-      required: ["text"],
       additionalProperties: false,
     },
   },
@@ -70,7 +100,7 @@ function fail(message) {
 }
 
 const server = new Server(
-  { name: "whatsapp-group-mcp", version: "0.1.0" },
+  { name: "whatsapp-group-mcp", version: "0.2.0" },
   { capabilities: { tools: {} } }
 );
 
@@ -88,34 +118,32 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         return ok({ count: groups.length, groups });
       }
 
+      case "grant_channel":
+        return ok(await wa.grantChannel(args.channel));
+
+      case "revoke_channel":
+        return ok(wa.revokeChannel(args.channel));
+
       case "get_recent_messages": {
-        if (!wa.groupId) {
-          return fail(
-            "Aucun groupe défini/résolu. Renseigne WHATSAPP_GROUP_ID ou WHATSAPP_GROUP_NAME dans .env (utilise 'list_groups' pour trouver le JID), puis relance le serveur."
-          );
-        }
         const limit = Number.isInteger(args.limit) ? args.limit : 50;
-        const messages = store.recent(limit).map((m) => ({
-          from: m.pushName || m.sender,
-          sender: m.sender,
-          fromMe: m.fromMe,
-          text: m.text,
-          at: new Date((m.timestamp || 0) * 1000).toISOString(),
-        }));
+        const { jid, subject, messages, buffered } = wa.recentFor(args.channel, limit);
         return ok({
-          groupId: wa.groupId,
+          channel: { jid, subject },
           returned: messages.length,
-          buffered: store.size(),
+          buffered,
           note:
-            store.size() === 0
-              ? "Aucun message en mémoire pour l'instant. Le tampon se remplit avec l'historique reçu à la connexion et les nouveaux messages."
+            messages.length === 0
+              ? "Aucun message en mémoire pour ce canal. Le tampon se remplit avec l'historique reçu à la connexion et les nouveaux messages."
               : undefined,
-          messages,
+          messages: messages.map((m) => ({
+            from: m.pushName || m.sender,
+            sender: m.sender,
+            fromMe: m.fromMe,
+            text: m.text,
+            at: new Date((m.timestamp || 0) * 1000).toISOString(),
+          })),
         });
       }
-
-      case "send_message":
-        return ok(await wa.sendMessage(args.text));
 
       default:
         return fail(`Outil inconnu : ${name}`);
@@ -125,6 +153,15 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   }
 });
 
+// Journalise ce que le client sait faire. `elicitation` conditionne le retour futur de
+// l'écriture : c'est la seule façon d'afficher à l'humain une demande rédigée par le
+// serveur, donc non falsifiable par le LLM (ADR-0001).
+server.oninitialized = () => {
+  const caps = server.getClientCapabilities() || {};
+  log("Client MCP connecté. Capabilities:", JSON.stringify(caps));
+  log("Elicitation supportée par ce client :", caps.elicitation ? "OUI" : "non");
+};
+
 async function main() {
   // 1) Démarre WhatsApp (affiche un QR sur stderr si pas encore appairé).
   //    On n'attend pas la connexion : le serveur MCP doit répondre tout de suite.
@@ -133,7 +170,11 @@ async function main() {
   // 2) Démarre le transport MCP sur stdio.
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  log("Serveur MCP prêt (stdio). Groupe autorisé:", config.groupId || "(non configuré)");
+  const granted = settings.list();
+  log(
+    "Serveur MCP prêt (stdio, LECTURE SEULE). Canaux autorisés:",
+    granted.length ? granted.map((g) => g.subject || g.jid).join(", ") : "(aucun)"
+  );
 }
 
 main().catch((e) => {

@@ -1,12 +1,16 @@
-// Utilitaire en ligne de commande : affiche les groupes WhatsApp du compte appairé,
-// pour trouver le JID à mettre dans WHATSAPP_GROUP_ID.
-// Réutilise la session enregistrée dans ./auth (lance d'abord `npm start` pour appairer).
+// Utilitaire en ligne de commande : affiche les groupes WhatsApp du compte appairé.
+// Dépannage / vue d'ensemble hors LLM — l'usage normal est de demander à son LLM
+// « liste mes groupes » (outil list_groups) puis « autorise <nom> » (grant_channel).
+//
+// ATTENTION : un seul process Baileys peut utiliser la session à la fois.
+// Coupe `npm start` avant de lancer ce script, sinon les deux se déconnectent mutuellement.
 
 import { config } from "../src/config.js";
-import { MessageStore } from "../src/store.js";
+import { Settings } from "../src/settings.js";
 import { WhatsAppClient } from "../src/whatsapp.js";
 
-const wa = new WhatsAppClient(config, new MessageStore(1));
+const settings = new Settings(config.settingsFile).load();
+const wa = new WhatsAppClient(config, settings);
 
 await wa.start();
 
@@ -26,15 +30,16 @@ if (!wa.isReady()) {
 }
 
 const groups = await wa.listGroups();
-groups.sort((a, b) => (a.subject || "").localeCompare(b.subject || ""));
 
 console.log("\nGroupes trouvés :\n");
 for (const g of groups) {
-  const mark = g.isAllowed ? "  <-- WHATSAPP_GROUP_ID actuel" : "";
+  const mark = g.granted ? "  <-- autorisé en lecture" : "";
   console.log(`  ${g.subject}`);
   console.log(`      ${g.id}  (${g.participants ?? "?"} membres)${mark}\n`);
 }
 console.log(`Total : ${groups.length} groupe(s).`);
-console.log("Copie le JID (…@g.us) voulu dans WHATSAPP_GROUP_ID (.env), puis relance le serveur.\n");
+console.log(
+  "Pour autoriser un groupe, demande à ton LLM : « autorise le groupe <nom> » (outil grant_channel).\n"
+);
 
 process.exit(0);
