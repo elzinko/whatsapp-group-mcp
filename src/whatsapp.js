@@ -59,6 +59,20 @@ function normalize(s) {
   return String(s || "").trim().toLowerCase();
 }
 
+// Décide quoi faire quand la connexion se ferme. Fonction PURE (aucun effet de bord),
+// pour être testable sans WhatsApp. Voir test/reconnect-plan.js.
+//   - "wipe"   : identifiants invalides (401) -> effacer auth, ré-appairage requis.
+//   - "giveup" : session remplacée (440) -> une autre connexion a pris la main sur le
+//                même dossier auth ; se reconnecter relancerait une guerre + un rate-limit.
+//   - "retry"  : coupure ordinaire (515 restart, réseau…) -> reconnexion avec backoff
+//                exponentiel plafonné (2s, 4s, 8s… max 60s), `attempt` = n° de tentative.
+export function planReconnect(statusCode, attempt) {
+  if (statusCode === DisconnectReason.loggedOut) return { action: "wipe" };
+  if (statusCode === DisconnectReason.connectionReplaced) return { action: "giveup" };
+  const delayMs = Math.min(60000, 2000 * 2 ** Math.max(0, attempt - 1));
+  return { action: "retry", delayMs };
+}
+
 export class WhatsAppClient {
   constructor(config, settings) {
     this.config = config;
@@ -69,6 +83,8 @@ export class WhatsAppClient {
     this.startedAt = Date.now();
     this.stores = new Map(); // jid -> MessageStore (un tampon + une archive par canal)
     this.knownGroups = new Map(); // jid -> nom, snapshot du dernier fetch
+    this.reconnectAttempts = 0; // pour le backoff exponentiel des reconnexions
+    this.giveUp = false; // vrai si une autre session a pris la main (440) : on cesse de lutter
   }
 
   isReady() {
@@ -142,6 +158,7 @@ export class WhatsAppClient {
       if (connection === "open") {
         this.state = "open";
         this.lastQR = null;
+        this.reconnectAttempts = 0; // connexion réussie : on repart de zéro
         log("Connecté à WhatsApp.");
         try {
           await this._refreshGroups();
@@ -167,17 +184,40 @@ export class WhatsAppClient {
       if (connection === "close") {
         this.state = "closed";
         const statusCode = lastDisconnect?.error?.output?.statusCode;
-        const loggedOut = statusCode === DisconnectReason.loggedOut;
-        log(`Connexion fermée (code=${statusCode}).`, loggedOut ? "Déconnecté." : "Reconnexion…");
-        if (!loggedOut) {
-          setTimeout(() => this.start().catch((e) => log("Echec reconnexion:", e?.message)), 2000);
-        } else {
+        const plan = planReconnect(statusCode, this.reconnectAttempts + 1);
+
+        if (plan.action === "wipe") {
+          // 401 : déconnecté côté téléphone -> on efface les identifiants (ré-appairage requis).
+          log("Connexion fermée (code=401). Déconnecté.");
           try {
             fs.rmSync(this.config.authDir, { recursive: true, force: true });
             log("Session effacée. Relance le serveur pour ré-appairer.");
             log("Les canaux autorisés sont conservés dans settings.json.");
           } catch {}
+          return;
         }
+
+        if (plan.action === "giveup") {
+          // 440 : une AUTRE connexion utilise le même dossier auth et a pris la main.
+          // Se reconnecter relancerait une guerre de sessions (et un rate-limit).
+          this.giveUp = true;
+          log(
+            "Connexion fermée (code=440) : une autre session utilise le même dossier auth " +
+              `(${this.config.authDir}). Arrêt des reconnexions pour éviter le conflit et le rate-limit. ` +
+              "N'exécute qu'UN seul client à la fois sur ce dossier, ou donne à chacun son propre WHATSAPP_AUTH_DIR."
+          );
+          return;
+        }
+
+        // "retry" : coupure ordinaire -> reconnexion avec backoff exponentiel plafonné.
+        this.reconnectAttempts += 1;
+        log(
+          `Connexion fermée (code=${statusCode}). Reconnexion dans ${Math.round(plan.delayMs / 1000)}s ` +
+            `(tentative ${this.reconnectAttempts})…`
+        );
+        setTimeout(() => {
+          if (!this.giveUp) this.start().catch((e) => log("Echec reconnexion:", e?.message));
+        }, plan.delayMs);
       }
     });
 

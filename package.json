@@ -11,10 +11,11 @@
   "scripts": {
     "start": "node src/index.js",
     "list-groups": "node scripts/list-groups.js",
-    "test": "node test/store-persistence.js && node test/grants.js && node test/mcp-smoke.js",
+    "test": "node test/reconnect-plan.js && node test/store-persistence.js && node test/grants.js && node test/mcp-smoke.js",
     "test:store": "node test/store-persistence.js",
     "test:grants": "node test/grants.js",
-    "test:mcp": "node test/mcp-smoke.js"
+    "test:mcp": "node test/mcp-smoke.js",
+    "test:reconnect": "node test/reconnect-plan.js"
   },
   "engines": {
     "node": ">=20"
