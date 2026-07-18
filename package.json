@@ -9,7 +9,9 @@
     "whatsapp-group-mcp": "src/index.js"
   },
   "scripts": {
+    "prestart": "node scripts/stop.js",
     "start": "node src/index.js",
+    "stop": "node scripts/stop.js",
     "list-groups": "node scripts/list-groups.js",
     "test": "node test/reconnect-plan.js && node test/store-persistence.js && node test/grants.js && node test/mcp-smoke.js",
     "test:store": "node test/store-persistence.js",

@@ -83,6 +83,14 @@ un redémarrage de session après l'appairage, le serveur le gère seul.
 > disputent la session dans `auth/` et se déconnectent mutuellement. Coupe l'un avant de
 > lancer l'autre.
 
+Pour t'éviter la chasse aux process : **`npm start` arrête d'abord tout serveur en cours**
+(le tien comme ceux lancés en arrière-plan par Claude Desktop/Code), puis démarre. Tu peux
+aussi arrêter sans redémarrer :
+
+```bash
+npm run stop
+```
+
 ## Choisir les groupes — depuis ton LLM
 
 C'est l'usage normal. Une fois le serveur branché, en conversation :
