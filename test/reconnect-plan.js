@@ -5,7 +5,7 @@
 // se reconnectent avec un backoff exponentiel plafonné à 60 s.
 
 import { DisconnectReason } from "@whiskeysockets/baileys";
-import { planReconnect } from "../src/whatsapp.js";
+import { planReconnect, mayWipeAuth } from "../src/whatsapp.js";
 
 let failed = false;
 function check(label, cond) {
@@ -39,6 +39,25 @@ check("backoff plafonné à 60000ms (tentative 10)", planReconnect(515, 10).dela
 
 // Robustesse : une tentative <= 0 ne doit pas produire un délai négatif.
 check("tentative 0 -> délai >= 2000ms (pas de valeur négative)", planReconnect(515, 0).delayMs === 2000);
+
+// --- mayWipeAuth : garde-fou du wipe sur 401 ---------------------------------
+// Régression : un serveur zombie recevant un 401 tardif effaçait le dossier auth
+// d'un ré-appairage EN COURS lancé par un autre process (crash ENOENT creds.json).
+const ours = { registrationId: 111 };
+
+check(
+  "401 avec NOS creds sur disque -> wipe autorisé",
+  mayWipeAuth(ours, JSON.stringify({ registrationId: 111 })) === true
+);
+check(
+  "401 mais un AUTRE process a ré-appairé (registrationId différent) -> ne pas toucher",
+  mayWipeAuth(ours, JSON.stringify({ registrationId: 222 })) === false
+);
+check("401 mais creds.json déjà absent -> rien à effacer", mayWipeAuth(ours, null) === false);
+check(
+  "401 avec creds.json corrompu -> nettoyage autorisé",
+  mayWipeAuth(ours, "{pas du json") === true
+);
 
 console.log(failed ? "\n=== RÉSULTAT: ÉCHEC ===" : "\n=== RÉSULTAT: SUCCÈS ===");
 process.exit(failed ? 1 : 0);

@@ -7,6 +7,7 @@
 // pour le contrat à respecter le jour où l'écriture reviendra.
 
 import fs from "node:fs";
+import path from "node:path";
 import makeWASocket, {
   useMultiFileAuthState,
   DisconnectReason,
@@ -71,6 +72,24 @@ export function planReconnect(statusCode, attempt) {
   if (statusCode === DisconnectReason.connectionReplaced) return { action: "giveup" };
   const delayMs = Math.min(60000, 2000 * 2 ** Math.max(0, attempt - 1));
   return { action: "retry", delayMs };
+}
+
+// Décide si CE process a le droit d'effacer le dossier auth après un 401.
+// Fonction PURE, testée dans test/reconnect-plan.js.
+// `ours` = creds chargés par ce process ; `rawOnDisk` = contenu actuel de
+// creds.json (null si absent). On n'efface QUE si l'identité sur disque est la
+// nôtre : si un autre process a ré-appairé entre-temps (registrationId
+// différent), le dossier contient SA session — l'effacer casserait son
+// appairage en cours (vécu : un serveur zombie recevant un 401 tardif a rasé
+// l'appairage tout neuf d'un npm start, crash ENOENT sur creds.json).
+export function mayWipeAuth(ours, rawOnDisk) {
+  if (rawOnDisk === null || rawOnDisk === undefined) return false; // rien à effacer
+  try {
+    const disk = JSON.parse(rawOnDisk);
+    return disk?.registrationId === ours?.registrationId;
+  } catch {
+    return true; // creds.json illisible : résidu corrompu, nettoyer est sain
+  }
 }
 
 export class WhatsAppClient {
@@ -138,7 +157,15 @@ export class WhatsAppClient {
     });
     this.sock = sock;
 
-    sock.ev.on("creds.update", saveCreds);
+    // Une écriture de creds qui échoue (ex: dossier auth supprimé sous nos pieds par
+    // un autre process) ne doit JAMAIS crasher le serveur : rejet capté et journalisé.
+    sock.ev.on("creds.update", async () => {
+      try {
+        await saveCreds();
+      } catch (e) {
+        log("Échec de sauvegarde des identifiants (auth supprimé ?) :", e?.message);
+      }
+    });
 
     sock.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect, qr } = update;
@@ -187,13 +214,26 @@ export class WhatsAppClient {
         const plan = planReconnect(statusCode, this.reconnectAttempts + 1);
 
         if (plan.action === "wipe") {
-          // 401 : déconnecté côté téléphone -> on efface les identifiants (ré-appairage requis).
+          // 401 : déconnecté côté téléphone -> on efface les identifiants (ré-appairage
+          // requis) — mais SEULEMENT si le dossier contient encore NOTRE session (un
+          // autre process a pu ré-appairer entre-temps, voir mayWipeAuth).
           log("Connexion fermée (code=401). Déconnecté.");
+          let rawOnDisk = null;
           try {
-            fs.rmSync(this.config.authDir, { recursive: true, force: true });
-            log("Session effacée. Relance le serveur pour ré-appairer.");
-            log("Les canaux autorisés sont conservés dans settings.json.");
+            rawOnDisk = fs.readFileSync(path.join(this.config.authDir, "creds.json"), "utf8");
           } catch {}
+          if (mayWipeAuth(state.creds, rawOnDisk)) {
+            try {
+              fs.rmSync(this.config.authDir, { recursive: true, force: true });
+              log("Session effacée. Relance le serveur pour ré-appairer.");
+              log("Les canaux autorisés sont conservés dans settings.json.");
+            } catch {}
+          } else {
+            log(
+              "Le dossier auth appartient à une autre session (ré-appairage en cours ?) : " +
+                "on n'y touche pas. Ce process s'arrête là."
+            );
+          }
           return;
         }
 
