@@ -1,6 +1,7 @@
 # ADR-0001 : Modèle d'accès aux canaux WhatsApp
 
-**Statut :** Accepté
+**Statut :** Accepté — amendé par [ADR-0002](0002-le-plafond-et-le-consentement.md)
+(le gate d'approbation passe du client au serveur : plafond `allowlist.json` + élicitation)
 **Date :** 2026-07-17
 **Décideurs :** Thomas (propriétaire du projet et du compte WhatsApp)
 
@@ -235,4 +236,6 @@ sur ses propres données. Rien de plus.
 
 ### Reste à faire
 
-- [ ] **Mesurer `elicitation`** depuis Cowork (voir action 1) — prérequis de tout futur `send`.
+- [x] **Mesurer `elicitation`** depuis Cowork (voir action 1) — repris et implémenté par
+      l'ADR-0002 (consentement par `elicitInput` avec repli ; mesure via
+      `whatsapp_status.grantConsent`).

@@ -12,9 +12,10 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const serverEntry = path.resolve(__dirname, "..", "src", "index.js");
 
-// Réglages jetables : on ne touche pas au settings.json réel de l'utilisateur.
+// Réglages jetables : on ne touche ni au settings.json ni au allowlist.json réels.
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "wa-smoke-"));
 const settingsFile = path.join(tmpDir, "settings.json");
+const allowlistFile = path.join(tmpDir, "allowlist.json");
 
 const transport = new StdioClientTransport({
   command: process.execPath, // node
@@ -25,6 +26,7 @@ const transport = new StdioClientTransport({
     // Empêche toute vraie connexion d'interférer : dossier auth jetable, réglages jetables
     WHATSAPP_AUTH_DIR: "./auth-test",
     WHATSAPP_SETTINGS_FILE: settingsFile,
+    WHATSAPP_ALLOWLIST_FILE: allowlistFile,
     WHATSAPP_GROUP_ID: "",
     WHATSAPP_GROUP_NAME: "",
     WHATSAPP_PERSIST: "false", // pas d'écriture disque pendant le test de fumée

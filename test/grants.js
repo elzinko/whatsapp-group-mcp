@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Settings } from "../src/settings.js";
+import { Allowlist, parseAllowlist } from "../src/allowlist.js";
 import { WhatsAppClient } from "../src/whatsapp.js";
 
 let failed = false;
@@ -52,10 +53,12 @@ try {
   );
   check("portée inconnue ignorée", !new Settings(file).load().has("222@g.us"));
 
-  // --- 3) Barrière d'ingestion ---
+  // --- 3) Barrière d'ingestion (grant ET plafond exigés, ADR-0002) ---
   const settings = new Settings(path.join(tmp, "ingest.json"));
   settings.grant("aaa@g.us", "Autorisé");
-  const wa = new WhatsAppClient({ maxMessages: 10, persist: false }, settings);
+  const ceiling = new Allowlist(path.join(tmp, "allowlist.json"));
+  ceiling.entries = parseAllowlist({ channels: ["aaa@g.us"] });
+  const wa = new WhatsAppClient({ maxMessages: 10, persist: false }, settings, ceiling);
 
   wa._ingest(fakeMsg("aaa@g.us", "m1"));
   wa._ingest(fakeMsg("bbb@g.us", "m2")); // canal NON autorisé

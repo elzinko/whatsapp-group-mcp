@@ -16,10 +16,14 @@ import {
 
 import { config } from "./config.js";
 import { Settings } from "./settings.js";
+import { Allowlist } from "./allowlist.js";
 import { WhatsAppClient, log } from "./whatsapp.js";
 
 const settings = new Settings(config.settingsFile).load();
-const wa = new WhatsAppClient(config, settings);
+// Le plafond (ADR-0002). Au tout premier démarrage, il est généré depuis les grants
+// existants (migration sans régression) ; ensuite seul l'humain l'édite, à la main.
+const allowlist = new Allowlist(config.allowlistFile).bootstrap(settings);
+const wa = new WhatsAppClient(config, settings, allowlist);
 
 // --- Définition des outils MCP ---
 const TOOLS = [
@@ -38,7 +42,7 @@ const TOOLS = [
   {
     name: "grant_channel",
     description:
-      "Autorise la LECTURE d'un groupe, de façon persistante (survit aux redémarrages). N'accorde jamais le droit d'écrire : ce serveur ne peut pas envoyer de message. Utilise 'list_groups' avant pour connaître les noms/JID exacts.",
+      "Autorise la LECTURE d'un groupe, de façon persistante (survit aux redémarrages). Borné par le plafond (allowlist.json, édité à la main par l'humain — hors plafond, refus systématique) et soumis au consentement de l'humain (formulaire d'élicitation si le client le supporte). N'accorde jamais le droit d'écrire : ce serveur ne peut pas envoyer de message. Utilise 'list_groups' avant pour connaître les noms/JID exacts et le champ 'inAllowlist'.",
     inputSchema: {
       type: "object",
       properties: {
@@ -111,7 +115,12 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   try {
     switch (name) {
       case "whatsapp_status":
-        return ok(wa.status());
+        return ok({
+          ...wa.status(),
+          grantConsent: clientSupportsElicitation
+            ? "élicitation (formulaire rédigé par le serveur, hors de portée du LLM)"
+            : "permissions du client MCP (le client ne supporte pas l'élicitation)",
+        });
 
       case "list_groups": {
         const groups = await wa.listGroups();
@@ -153,13 +162,53 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   }
 });
 
-// Journalise ce que le client sait faire. `elicitation` conditionne le retour futur de
-// l'écriture : c'est la seule façon d'afficher à l'humain une demande rédigée par le
-// serveur, donc non falsifiable par le LLM (ADR-0001).
+// L'élicitation est la seule façon d'afficher à l'humain une question RÉDIGÉE PAR LE
+// SERVEUR, dont la réponse ne transite jamais par le LLM (ADR-0001, ADR-0002). Quand le
+// client la supporte, chaque grant passe par ce consentement. Sinon, repli : le grant
+// reste borné par le plafond, et la confirmation d'appel d'outil du client (quand elle
+// existe) reste le garde-fou conversationnel.
+let clientSupportsElicitation = false;
+
 server.oninitialized = () => {
   const caps = server.getClientCapabilities() || {};
+  clientSupportsElicitation = !!caps.elicitation;
   log("Client MCP connecté. Capabilities:", JSON.stringify(caps));
-  log("Elicitation supportée par ce client :", caps.elicitation ? "OUI" : "non");
+  log("Elicitation supportée par ce client :", clientSupportsElicitation ? "OUI" : "non");
+};
+
+wa.confirmGrant = async ({ jid, subject }) => {
+  if (!clientSupportsElicitation) {
+    return { accepted: true, via: "client-permissions" };
+  }
+  try {
+    const res = await server.elicitInput({
+      message:
+        `Le LLM demande l'accès en LECTURE au groupe WhatsApp « ${subject} » (${jid}). ` +
+        `Ce canal est dans ton plafond (allowlist.json). Confirmer l'autorisation ?`,
+      requestedSchema: {
+        type: "object",
+        properties: {
+          autoriser: {
+            type: "boolean",
+            title: `Autoriser la lecture de « ${subject} »`,
+            description: "true = accorder le grant de lecture (révocable à tout moment)",
+          },
+        },
+        required: ["autoriser"],
+      },
+    });
+    if (res?.action === "accept" && res?.content?.autoriser === true) {
+      return { accepted: true, via: "elicitation" };
+    }
+    return {
+      accepted: false,
+      reason: res?.action === "accept" ? "réponse négative au formulaire" : `formulaire ${res?.action || "sans réponse"}`,
+    };
+  } catch (e) {
+    // Fail closed : si le formulaire n'a pas pu être présenté, on n'accorde rien.
+    log("Élicitation impossible :", e?.message);
+    return { accepted: false, reason: "le formulaire de consentement n'a pas pu être affiché" };
+  }
 };
 
 async function main() {

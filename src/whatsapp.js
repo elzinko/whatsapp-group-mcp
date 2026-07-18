@@ -93,9 +93,15 @@ export function mayWipeAuth(ours, rawOnDisk) {
 }
 
 export class WhatsAppClient {
-  constructor(config, settings) {
+  constructor(config, settings, allowlist) {
     this.config = config;
-    this.settings = settings; // Settings : la source de vérité des canaux autorisés
+    this.settings = settings; // Settings : les canaux autorisés (grants)
+    // Le PLAFOND (ADR-0002) : borne les grants, l'ingestion et la lecture.
+    // Absent = plafond vide = rien de servi (fail closed).
+    this.allowlist = allowlist || { entries: [], permits: () => false, load() { return this; } };
+    // Consentement humain avant chaque grant, injecté par index.js (élicitation MCP
+    // quand le client la supporte). Absent = pas de cérémonie supplémentaire.
+    this.confirmGrant = null;
     this.sock = null;
     this.state = "starting"; // starting | qr | connecting | open | closed
     this.lastQR = null;
@@ -124,11 +130,18 @@ export class WhatsAppClient {
     return store;
   }
 
+  // Le plafond couvre-t-il ce canal ? Le nom comparé vient du grant (résolu par
+  // Baileys à l'époque) ou du snapshot des groupes — jamais d'un texte du LLM.
+  _ceilingHas(jid) {
+    const subject = this.settings.grants.get(jid)?.subject ?? this.knownGroups.get(jid);
+    return this.allowlist.permits(jid, subject);
+  }
+
   // 1re barrière : rien de ce qui n'est pas explicitement autorisé n'entre,
-  // ni en mémoire ni sur disque.
+  // ni en mémoire ni sur disque. Grant ET plafond exigés (ADR-0002).
   _ingest(waMessage) {
     const jid = waMessage?.key?.remoteJid;
-    if (!jid || !this.settings.has(jid)) return;
+    if (!jid || !this.settings.has(jid) || !this._ceilingHas(jid)) return;
     const rec = toRecord(waMessage);
     if (rec.id) this._storeFor(jid).add(rec);
   }
@@ -296,6 +309,12 @@ export class WhatsAppClient {
         this.settings.grant(g.jid, current);
         log(`Groupe renommé : « ${g.subject} » -> « ${current} »`);
       }
+      if (!this._ceilingHas(g.jid)) {
+        log(
+          `Grant SUSPENDU (hors plafond) : « ${current || g.subject || g.jid} » — ` +
+            `réintègre-le à la main dans ${this.config.allowlistFile} pour le réactiver.`
+        );
+      }
     }
   }
 
@@ -359,12 +378,18 @@ export class WhatsAppClient {
         subject: g.subject,
         participants: Array.isArray(g.participants) ? g.participants.length : undefined,
         granted: this.settings.has(g.id),
+        // Le grant n'est possible que si l'humain a mis le canal au plafond (à la main).
+        inAllowlist: this.allowlist.permits(g.id, g.subject),
       }))
       .sort((a, b) => (a.subject || "").localeCompare(b.subject || ""));
   }
 
   // Autorise la LECTURE d'un canal. Le nom mémorisé est toujours celui résolu par
-  // Baileys, jamais celui fourni par l'appelant (ADR-0001).
+  // Baileys, jamais celui fourni par l'appelant (ADR-0001). Deux barrières (ADR-0002) :
+  //   1. le PLAFOND : hors de allowlist.json, refus sec — seul l'humain, à la main,
+  //      peut étendre cette liste ;
+  //   2. le CONSENTEMENT : si le client supporte l'élicitation, l'humain valide via
+  //      un formulaire rédigé par le serveur, hors de portée du LLM.
   async grantChannel(channel) {
     if (!this.isReady()) throw new Error("WhatsApp non connecté (scanne d'abord le QR code).");
     await this._refreshGroups();
@@ -373,6 +398,27 @@ export class WhatsAppClient {
       throw new Error(`Groupe inconnu, ou le compte n'en est pas membre : ${jid}`);
     }
     const subject = this.knownGroups.get(jid);
+
+    this.allowlist.load(); // fraîcheur : une édition manuelle s'applique sans redémarrage
+    if (!this._ceilingHas(jid)) {
+      throw new Error(
+        `« ${subject} » est hors du plafond. Seul l'humain peut l'y ajouter, à la main, ` +
+          `dans ${this.config.allowlistFile} (aucun outil ne peut le faire à sa place). ` +
+          `Puis réessaie grant_channel.`
+      );
+    }
+
+    if (this.confirmGrant) {
+      const res = await this.confirmGrant({ jid, subject });
+      if (!res?.accepted) {
+        throw new Error(
+          `Autorisation refusée par l'humain pour « ${subject} »` +
+            (res?.reason ? ` (${res.reason})` : "") +
+            ". Le grant n'a pas été accordé."
+        );
+      }
+    }
+
     this.settings.grant(jid, subject);
     this._storeFor(jid);
     log(`Grant LECTURE accordé : « ${subject} » (${jid})`);
@@ -389,15 +435,23 @@ export class WhatsAppClient {
     return { jid, subject, revoked: true };
   }
 
-  // Messages récents d'UN canal autorisé. Si `channel` est omis et qu'un seul canal
-  // est autorisé, c'est lui. Sinon il faut choisir explicitement.
+  // Messages récents d'UN canal autorisé ET couvert par le plafond. Si `channel`
+  // est omis et qu'un seul canal est actif, c'est lui. Sinon il faut choisir.
   recentFor(channel, limit = 50) {
-    const granted = this.settings.list();
+    // Un grant sorti du plafond (édition manuelle de allowlist.json) est SUSPENDU :
+    // il reste dans settings.json mais ne sert plus rien tant qu'il n'y revient pas.
+    const granted = this.settings.list().filter((g) => this._ceilingHas(g.jid));
     let jid;
     if (channel) {
       jid = this._resolveToJid(channel);
       if (!this.settings.has(jid)) {
         throw new Error(`Canal non autorisé : ${jid}. Utilise 'grant_channel' d'abord.`);
+      }
+      if (!this._ceilingHas(jid)) {
+        throw new Error(
+          `Canal suspendu : « ${this.settings.grants.get(jid)?.subject || jid} » est sorti du ` +
+            `plafond. Seul l'humain peut le réintégrer, à la main, dans ${this.config.allowlistFile}.`
+        );
       }
     } else if (granted.length === 1) {
       jid = granted[0].jid;
@@ -429,8 +483,16 @@ export class WhatsAppClient {
         jid: g.jid,
         subject: g.subject,
         scope: g.scope,
+        // suspended = granté mais sorti du plafond : inerte tant que l'humain ne le
+        // réintègre pas à la main dans allowlist.json.
+        suspended: !this._ceilingHas(g.jid) || undefined,
         messagesBuffered: this.stores.get(g.jid)?.size() ?? 0,
       })),
+      allowlist: {
+        file: this.config.allowlistFile,
+        channels: this.allowlist.entries.length,
+        editableBy: "l'humain uniquement, à la main — aucun outil MCP n'y écrit",
+      },
       persistence: this.config.persist
         ? { enabled: true, dir: this.config.dataDir }
         : { enabled: false },

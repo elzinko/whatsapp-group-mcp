@@ -18,6 +18,10 @@ data-*/
 settings.json
 settings-*.json
 
+# Le plafond (ADR-0002) : mêmes données privées -> jamais commité
+allowlist.json
+allowlist-*.json
+
 # Logs
 *.log
 

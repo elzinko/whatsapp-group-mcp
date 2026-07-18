@@ -52,6 +52,12 @@ const settingsFile = process.env.WHATSAPP_SETTINGS_FILE
   ? path.resolve(projectRoot, process.env.WHATSAPP_SETTINGS_FILE)
   : path.join(projectRoot, "settings.json");
 
+// Le PLAFOND : liste des canaux que le serveur a le droit de servir, éditée
+// uniquement à la main (aucun outil MCP n'y écrit). Voir src/allowlist.js et ADR-0002.
+const allowlistFile = process.env.WHATSAPP_ALLOWLIST_FILE
+  ? path.resolve(projectRoot, process.env.WHATSAPP_ALLOWLIST_FILE)
+  : path.join(projectRoot, "allowlist.json");
+
 export const config = {
   projectRoot,
   // Amorçage uniquement : au tout premier démarrage, si aucun grant n'existe encore,
@@ -69,6 +75,7 @@ export const config = {
   authDir,
   dataDir,
   settingsFile,
+  allowlistFile,
 };
 
 // Un JID de groupe WhatsApp se termine toujours par "@g.us".

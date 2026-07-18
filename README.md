@@ -91,22 +91,50 @@ aussi arrêter sans redémarrer :
 npm run stop
 ```
 
+## Le plafond : `allowlist.json` — la liste que seul l'humain édite
+
+Avant tout grant, il y a **le plafond** ([ADR-0002](docs/adr/0002-le-plafond-et-le-consentement.md)) :
+`allowlist.json`, la liste des canaux que ce serveur a le **droit** de servir.
+
+- Tu l'édites **à la main, dans un éditeur** — aucun outil MCP ne peut y écrire, la
+  capacité n'existe pas dans le code. Un LLM ne peut donc jamais élargir son propre
+  périmètre, quel que soit le mode de permissions du client.
+- Une entrée = un nom exact de groupe, un JID (`…@g.us`), ou `{ "jid": …, "name": … }`.
+- Un canal **hors plafond** n'est ni autorisable, ni lisible, ni même gardé en mémoire.
+  Un grant dont le canal sort du plafond est **suspendu** (pas supprimé) : le réintégrer
+  au plafond le réactive.
+- Au tout premier démarrage, le fichier est généré depuis tes grants existants (aucune
+  régression) ; ensuite, tes éditions font foi — prises en compte sans redémarrage.
+
+```json
+{
+  "version": 1,
+  "channels": ["Copro Reine Blanche", { "jid": "1203…@g.us", "name": "Basket loisir" }]
+}
+```
+
 ## Choisir les groupes — depuis ton LLM
 
 C'est l'usage normal. Une fois le serveur branché, en conversation :
 
 1. « **liste mes groupes WhatsApp** » → `list_groups` renvoie chaque groupe (nom + JID),
-   et lesquels sont déjà autorisés.
+   lesquels sont déjà autorisés (`granted`) et lesquels sont au plafond (`inAllowlist`).
 2. « **autorise le groupe Copro reine blanche** » → `grant_channel` l'ouvre en lecture,
-   **de façon persistante**.
+   **de façon persistante** — à deux conditions :
+   - le canal est **au plafond** (sinon refus : ajoute-le d'abord à la main) ;
+   - **tu confirmes** : si ton client supporte l'**élicitation MCP**, un formulaire rédigé
+     par le serveur s'affiche — ta réponse ne transite jamais par le LLM, il ne peut ni la
+     rédiger ni la falsifier. (Sinon, repli sur le dialogue de permissions du client.)
 3. « **donne-moi les derniers messages de la copro** » → `get_recent_messages`.
-4. « **retire l'accès à la copro** » → `revoke_channel`.
+4. « **retire l'accès à la copro** » → `revoke_channel` (aucune confirmation nécessaire :
+   réduire les droits est toujours permis).
 
 Les autorisations sont enregistrées dans `settings.json` (ignoré par git) et survivent
 aux redémarrages : **rien à reconfigurer entre deux sessions**.
 
 Au démarrage, elles sont **revérifiées** : un groupe que tu as quitté ou qui n'existe plus
-est retiré automatiquement ; un groupe renommé voit son nom mis à jour.
+est retiré automatiquement ; un groupe renommé voit son nom mis à jour ; un grant hors
+plafond est signalé comme suspendu.
 
 ### En ligne de commande (dépannage)
 
@@ -178,7 +206,8 @@ Tout est optionnel. Voir [`.env.example`](.env.example).
 | `WHATSAPP_MAX_MESSAGES` | `500` | Taille du tampon **mémoire**, **par canal**. |
 | `WHATSAPP_AUTH_DIR` | `./auth` | Identifiants de session. **Effacé en cas de déconnexion.** |
 | `WHATSAPP_DATA_DIR` | `./data` | Archive des messages. |
-| `WHATSAPP_SETTINGS_FILE` | `./settings.json` | Canaux autorisés. |
+| `WHATSAPP_SETTINGS_FILE` | `./settings.json` | Canaux autorisés (grants). |
+| `WHATSAPP_ALLOWLIST_FILE` | `./allowlist.json` | Le **plafond** : édité à la main uniquement, borne grants, ingestion et lecture. |
 
 Il n'existe **aucune** variable pour activer l'envoi.
 
