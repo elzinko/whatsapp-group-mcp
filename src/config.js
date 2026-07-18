@@ -63,6 +63,9 @@ export const config = {
   maxMessages: Number.parseInt(process.env.WHATSAPP_MAX_MESSAGES || "500", 10) || 500,
   // Persistance des messages sur disque (archive JSONL, survit aux redémarrages).
   persist: bool(process.env.WHATSAPP_PERSIST, true),
+  // Nom affiché dans WhatsApp > Appareils liés/connectés. Figé AU MOMENT de
+  // l'appairage : le changer n'a d'effet qu'après un ré-appairage (QR).
+  deviceName: (process.env.WHATSAPP_DEVICE_NAME || "").trim() || "whatsapp-group-mcp",
   authDir,
   dataDir,
   settingsFile,

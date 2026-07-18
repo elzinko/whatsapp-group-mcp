@@ -132,7 +132,7 @@ export class WhatsAppClient {
       auth: state,
       logger: pino({ level: "silent" }, pino.destination(2)), // Baileys -> stderr, muet
       printQRInTerminal: false, // on gère le QR nous-mêmes (vers stderr)
-      browser: Browsers.appropriate("Claude MCP"),
+      browser: Browsers.appropriate(this.config.deviceName),
       markOnlineOnConnect: false,
       syncFullHistory: false,
     });

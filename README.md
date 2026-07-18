@@ -166,6 +166,7 @@ Tout est optionnel. Voir [`.env.example`](.env.example).
 | `WHATSAPP_GROUP_ID` | *(vide)* | **Amorçage seulement** : converti en autorisation au 1er démarrage si aucune n'existe. Ensuite `settings.json` fait foi. |
 | `WHATSAPP_GROUP_NAME` | *(vide)* | Idem, par nom exact. |
 | `WHATSAPP_PERSIST` | `true` | Archive les messages sur disque (`./data/*.jsonl`). |
+| `WHATSAPP_DEVICE_NAME` | `whatsapp-group-mcp` | Nom de l'appareil dans WhatsApp → Appareils liés/connectés. **Figé à l'appairage** : le changer exige de déconnecter l'appareil (téléphone), supprimer `./auth`, et rescanner le QR. |
 | `WHATSAPP_MAX_MESSAGES` | `500` | Taille du tampon **mémoire**, **par canal**. |
 | `WHATSAPP_AUTH_DIR` | `./auth` | Identifiants de session. **Effacé en cas de déconnexion.** |
 | `WHATSAPP_DATA_DIR` | `./data` | Archive des messages. |
