@@ -5,7 +5,7 @@ type: feature
 priority: P1
 version:
 epic:
-status: idea
+status: in-progress
 ready:
 pr:
 created: 2026-07-18
@@ -37,11 +37,17 @@ note de bas de page).
 
 ## Critères d'acceptation
 
-- [ ] Plan validé par Thomas (angle, ton, support de publication)
-- [ ] 6 chapitres rédigés, chaque affirmation technique adossée à un commit/ADR réel
-- [ ] ≥ 3 diagrammes versionnés dans `diagrams/` (prose + Mermaid + SVG)
-- [ ] Relecture « intrigue » : un lecteur non-MCP comprend et a envie de finir
+*(recadrés par le PO le 2026-07-19 : support libre, < 4 min, UN graphique, arc
+problème → contexte → solution → implémentation — remplace les 6 chapitres / ≥3 diagrammes)*
+
+- [x] Cadrage PO : < 4 min, un graphique, arc imposé, projet cité
+- [x] Premier jet rédigé (~950 mots), chaque affirmation adossée au vécu du repo
+- [x] 1 diagramme Mermaid (séquence du grant : plafond + élicitation), syntaxe validée
+- [ ] Relecture « intrigue » par Thomas : un lecteur non-MCP comprend et a envie de finir
+- [ ] Publication (support au choix de Thomas) → alors `shipped`
 
 ## Notes
 
-À groomer après la fiche 0001 (le chapitre 5 a besoin du verdict `grantConsent`).
+- Premier jet : `docs/articles/2026-07-19-la-question-que-le-llm-ne-peut-pas-trafiquer.md`.
+- Verdict fiche 0001 intégré (élicitation = pilier, mesurée OUI dans Claude Code).
+- Teaser final vers la fiche 0007 (élicitation signée / Touch ID) en guise d'ouverture.
