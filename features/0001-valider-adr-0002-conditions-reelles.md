@@ -43,4 +43,14 @@ Répéter le point 1 dans Claude Desktop/Cowork.
 
 ## Notes
 
-Résultats de mesure : (à remplir)
+Résultats de mesure :
+- **2026-07-18, Claude Code : élicitation OUI** ✅ — formulaire serveur observé sur
+  `grant_channel` (« MCP server "whatsapp-group" requests your input »). La question
+  restée ouverte des ADR-0001/0002 est tranchée pour Code.
+- **2026-07-18, capture E2E OK** — status : « Test auto WhatsApp — 2 messages en
+  mémoire » (l'ingestion fonctionne) ; relecture via `get_recent_messages` à confirmer.
+- **Défaut UX corrigé dans la foulée** : le schéma exigeait un booléen `autoriser` en
+  plus d'Accept/Decline — redondant et pénible à cocher en TUI. Schéma vidé :
+  Accept = consentir, Decline = refuser. Nécessite un redémarrage du serveur
+  (`npm run stop` + nouvelle session) pour être visible.
+- Restant : `grantConsent` sur Desktop/Cowork, refus hors plafond, relecture E2E.

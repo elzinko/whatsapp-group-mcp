@@ -181,29 +181,19 @@ wa.confirmGrant = async ({ jid, subject }) => {
     return { accepted: true, via: "client-permissions" };
   }
   try {
+    // Pas de champ à remplir : Accept/Decline SONT la réponse. Un booléen en plus
+    // serait redondant et pénible à cocher au clavier (vécu, fiche 0001).
     const res = await server.elicitInput({
       message:
         `Le LLM demande l'accès en LECTURE au groupe WhatsApp « ${subject} » (${jid}). ` +
-        `Ce canal est dans ton plafond (allowlist.json). Confirmer l'autorisation ?`,
-      requestedSchema: {
-        type: "object",
-        properties: {
-          autoriser: {
-            type: "boolean",
-            title: `Autoriser la lecture de « ${subject} »`,
-            description: "true = accorder le grant de lecture (révocable à tout moment)",
-          },
-        },
-        required: ["autoriser"],
-      },
+        `Ce canal est dans ton plafond (allowlist.json). ` +
+        `Accept = autoriser la lecture (révocable à tout moment) · Decline = refuser.`,
+      requestedSchema: { type: "object", properties: {} },
     });
-    if (res?.action === "accept" && res?.content?.autoriser === true) {
+    if (res?.action === "accept") {
       return { accepted: true, via: "elicitation" };
     }
-    return {
-      accepted: false,
-      reason: res?.action === "accept" ? "réponse négative au formulaire" : `formulaire ${res?.action || "sans réponse"}`,
-    };
+    return { accepted: false, reason: `formulaire ${res?.action || "sans réponse"}` };
   } catch (e) {
     // Fail closed : si le formulaire n'a pas pu être présenté, on n'accorde rien.
     log("Élicitation impossible :", e?.message);

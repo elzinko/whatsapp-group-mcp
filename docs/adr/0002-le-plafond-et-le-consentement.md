@@ -136,6 +136,9 @@ doit pas pouvoir franchir seul.
        `test/mcp-smoke.js` adaptés (plafond jetable — un smoke test ne doit pas créer le
        vrai `allowlist.json`).
 7. [x] README + `.env.example`.
-8. [ ] **Mesure en conditions réelles** (Thomas) : premier `grant_channel` depuis
-       Claude Code/Desktop — le formulaire apparaît-il ? (`grantConsent` dans
-       `whatsapp_status` donne la réponse.) Referme l'action ouverte de l'ADR-0001.
+8. [x] **Mesure en conditions réelles** (Thomas) — **Claude Code : élicitation OUI**
+       (2026-07-18, formulaire serveur observé sur `grant_channel` ; suivi en fiche
+       0001). Referme l'action ouverte de l'ADR-0001 pour Code ; Desktop/Cowork reste
+       à relever. Correctif d'expérience au passage : schéma sans champ — Accept vaut
+       consentement, Decline refus (un booléen requis en plus des deux boutons était
+       redondant et pénible au clavier).
