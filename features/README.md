@@ -22,7 +22,8 @@
 |---|---|---|---|
 | [0002](0002-article-mes-messages-mes-agents-et-moi.md) | Article : « Mes messages, mes agents et moi » (le MCP comme leçon de sécurité vécue) | feature | P1 |
 | [0004](0004-profils-par-projet.md) | Profils par projet (.mcp.json → profil nommé, effectif = plafond ∩ profil) | feature | P2 |
+| [0007](0007-elicitation-signee-touch-id.md) | Élicitation signée — consentement par authentification physique (Touch ID / Secure Enclave) | feature | P3 |
 
 ---
 
-Compteurs : 6 fiches actives — 2 todo (0 ready) · 4 idea (dont 2 épics) · 0 in-progress · 0 blocked · 0 shipped.
+Compteurs : 7 fiches actives — 2 todo (0 ready) · 5 idea (dont 2 épics) · 0 in-progress · 0 blocked · 0 shipped.
