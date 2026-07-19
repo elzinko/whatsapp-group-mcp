@@ -6,9 +6,23 @@
 
 | # | Titre | Type | Prio | Statut | PR |
 |---|---|---|---|---|---|
+| [0001](0001-valider-adr-0002-conditions-reelles.md) | Valider l'ADR-0002 en conditions réelles (plafond, élicitation, lecture E2E) | chore | P0 | 🔴 todo | |
+| [0003](0003-hygiene-locale-permissions-filevault.md) | Hygiène locale — permissions fichiers, FileVault, pas de dossier synchronisé | chore | P2 | 🔴 todo | |
 
-_(vide — backlog initialisé le 2026-07-18)_
+## 🧭 Épics (jamais tirables directement)
+
+| # | Titre | Prio | Statut |
+|---|---|---|---|
+| [0005](0005-demon-frontends-mcp.md) | Démon unique + frontends MCP minces (phase 2 — multi-clients simultanés) | P3 | 💡 idea |
+| [0006](0006-app-mobile-tokens.md) | Accès réseau pour l'app mobile — tokens à capabilities, TLS/Tailscale (phase 3) | P3 | 💡 idea |
 
 ## 💡 Idées (non groomées)
 
-_(aucune)_
+| # | Titre | Type | Prio |
+|---|---|---|---|
+| [0002](0002-article-mes-messages-mes-agents-et-moi.md) | Article : « Mes messages, mes agents et moi » (le MCP comme leçon de sécurité vécue) | feature | P1 |
+| [0004](0004-profils-par-projet.md) | Profils par projet (.mcp.json → profil nommé, effectif = plafond ∩ profil) | feature | P2 |
+
+---
+
+Compteurs : 6 fiches actives — 2 todo (0 ready) · 4 idea (dont 2 épics) · 0 in-progress · 0 blocked · 0 shipped.
