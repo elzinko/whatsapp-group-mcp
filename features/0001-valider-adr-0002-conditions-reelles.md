@@ -35,11 +35,11 @@ Répéter le point 1 dans Claude Desktop/Cowork.
 
 ## Critères d'acceptation
 
-- [ ] `grantConsent` relevé pour Claude Code ET Claude Desktop/Cowork (noté ici en Notes)
-- [ ] Refus hors plafond constaté avec le message guidant vers l'édition manuelle
-- [ ] Grant d'un canal au plafond constaté (formulaire d'élicitation OU repli permissions)
-- [ ] Lecture E2E : un message posté depuis le téléphone ressort via `get_recent_messages`
-- [ ] Action 8 de l'ADR-0002 cochée avec le résultat de la mesure
+- [x] `grantConsent` relevé pour Claude Code (élicitation OUI) — Desktop/Cowork : seul restant
+- [x] Refus hors plafond constaté avec le message guidant vers l'édition manuelle
+- [x] Grant d'un canal au plafond constaté via formulaire d'élicitation (Accept/Decline)
+- [x] Lecture E2E : messages capturés et relus via `get_recent_messages`
+- [x] Action 8 de l'ADR-0002 cochée avec le résultat de la mesure
 
 ## Notes
 
@@ -53,4 +53,11 @@ Résultats de mesure :
   plus d'Accept/Decline — redondant et pénible à cocher en TUI. Schéma vidé :
   Accept = consentir, Decline = refuser. Nécessite un redémarrage du serveur
   (`npm run stop` + nouvelle session) pour être visible.
-- Restant : `grantConsent` sur Desktop/Cowork, refus hors plafond, relecture E2E.
+- **2026-07-18, « tout passe » (Thomas)** : refus hors plafond ✅, formulaire
+  Accept/Decline ✅, relecture E2E ✅ — validé en réel dans Claude Code.
+- **Couverture automatisée ajoutée** (`test/elicitation.js`) : contrat de
+  `buildConfirmGrant` + protocole réel (Server + Client SDK, transport mémoire,
+  capability négociée, réponses programmées accept/decline/cancel/panne, repli sans
+  capability). Ce qui reste non-automatisable PAR CONSTRUCTION : prouver qu'un humain
+  a répondu — un test qui répond au formulaire est un robot.
+- Restant : relevé `grantConsent` sur Desktop/Cowork uniquement.

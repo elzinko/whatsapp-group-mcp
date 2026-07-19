@@ -17,6 +17,7 @@ import {
 import { config } from "./config.js";
 import { Settings } from "./settings.js";
 import { Allowlist } from "./allowlist.js";
+import { buildConfirmGrant } from "./consent.js";
 import { WhatsAppClient, log } from "./whatsapp.js";
 
 const settings = new Settings(config.settingsFile).load();
@@ -176,30 +177,7 @@ server.oninitialized = () => {
   log("Elicitation supportée par ce client :", clientSupportsElicitation ? "OUI" : "non");
 };
 
-wa.confirmGrant = async ({ jid, subject }) => {
-  if (!clientSupportsElicitation) {
-    return { accepted: true, via: "client-permissions" };
-  }
-  try {
-    // Pas de champ à remplir : Accept/Decline SONT la réponse. Un booléen en plus
-    // serait redondant et pénible à cocher au clavier (vécu, fiche 0001).
-    const res = await server.elicitInput({
-      message:
-        `Le LLM demande l'accès en LECTURE au groupe WhatsApp « ${subject} » (${jid}). ` +
-        `Ce canal est dans ton plafond (allowlist.json). ` +
-        `Accept = autoriser la lecture (révocable à tout moment) · Decline = refuser.`,
-      requestedSchema: { type: "object", properties: {} },
-    });
-    if (res?.action === "accept") {
-      return { accepted: true, via: "elicitation" };
-    }
-    return { accepted: false, reason: `formulaire ${res?.action || "sans réponse"}` };
-  } catch (e) {
-    // Fail closed : si le formulaire n'a pas pu être présenté, on n'accorde rien.
-    log("Élicitation impossible :", e?.message);
-    return { accepted: false, reason: "le formulaire de consentement n'a pas pu être affiché" };
-  }
-};
+wa.confirmGrant = buildConfirmGrant(server, () => clientSupportsElicitation, log);
 
 async function main() {
   // 1) Démarre WhatsApp (affiche un QR sur stderr si pas encore appairé).
