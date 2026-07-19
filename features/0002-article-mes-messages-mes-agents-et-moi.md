@@ -5,7 +5,7 @@ type: feature
 priority: P1
 version:
 epic:
-status: in-progress
+status: blocked
 ready:
 pr:
 created: 2026-07-18
@@ -41,13 +41,21 @@ note de bas de page).
 problème → contexte → solution → implémentation — remplace les 6 chapitres / ≥3 diagrammes)*
 
 - [x] Cadrage PO : < 4 min, un graphique, arc imposé, projet cité
-- [x] Premier jet rédigé (~950 mots), chaque affirmation adossée au vécu du repo
+- [x] Premier jet rédigé (~1070 mots), chaque affirmation adossée au vécu du repo
 - [x] 1 diagramme Mermaid (séquence du grant : plafond + élicitation), syntaxe validée
-- [ ] Relecture « intrigue » par Thomas : un lecteur non-MCP comprend et a envie de finir
-- [ ] Publication (support au choix de Thomas) → alors `shipped`
+- [x] Relecture « intrigue » par Thomas : **validé le 2026-07-19** (« il est top »), sans retouche
+- [ ] Publication (support à choisir) → alors `shipped`
 
 ## Notes
 
-- Premier jet : `docs/articles/2026-07-19-la-question-que-le-llm-ne-peut-pas-trafiquer.md`.
+- Texte final validé : `docs/articles/2026-07-19-la-question-que-le-llm-ne-peut-pas-trafiquer.md`.
 - Verdict fiche 0001 intégré (élicitation = pilier, mesurée OUI dans Claude Code).
 - Teaser final vers la fiche 0007 (élicitation signée / Touch ID) en guise d'ouverture.
+- **Bloquée le 2026-07-19** : contenu terminé et validé, en attente du **choix du support**
+  de publication (décision PO, pas de travail restant côté rédaction). Débloquer =
+  choisir le support, puis publier.
+- Deux points à trancher au moment de publier :
+  1. le repo `whatsapp-group-mcp` est **privé** → le lien cité dans l'article tombe dans
+     le vide tant qu'il ne passe pas public ;
+  2. Markdown + Mermaid passe tel quel sur GitHub / dev.to / Hashnode ; pour Medium ou
+     LinkedIn, exporter le diagramme en image (SVG/PNG).

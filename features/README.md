@@ -7,8 +7,13 @@
 | # | Titre | Type | Prio | Statut | PR |
 |---|---|---|---|---|---|
 | [0001](0001-valider-adr-0002-conditions-reelles.md) | Valider l'ADR-0002 en conditions réelles (plafond, élicitation, lecture E2E) | chore | P0 | 🔴 todo | |
-| [0002](0002-article-mes-messages-mes-agents-et-moi.md) | Article : « La question que le LLM ne peut pas trafiquer » | feature | P1 | 🟠 in-progress | |
 | [0003](0003-hygiene-locale-permissions-filevault.md) | Hygiène locale — permissions fichiers, FileVault, pas de dossier synchronisé | chore | P2 | 🔴 todo | |
+
+## ⛔ Bloquées
+
+| # | Titre | Type | Prio | Bloquée par |
+|---|---|---|---|---|
+| [0002](0002-article-mes-messages-mes-agents-et-moi.md) | Article : « La question que le LLM ne peut pas trafiquer » | feature | P1 | choix du support de publication (texte validé) |
 
 ## 🧭 Épics (jamais tirables directement)
 
@@ -26,4 +31,4 @@
 
 ---
 
-Compteurs : 7 fiches actives — 2 todo (0 ready) · 1 in-progress · 4 idea (dont 2 épics) · 0 blocked · 0 shipped.
+Compteurs : 7 fiches actives — 2 todo (0 ready) · 0 in-progress · 4 idea (dont 2 épics) · 1 blocked · 0 shipped.
