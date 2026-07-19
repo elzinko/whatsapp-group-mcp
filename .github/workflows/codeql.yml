@@ -1,0 +1,33 @@
+# Analyse statique de sécurité (CodeQL) — gratuite et illimitée sur un dépôt public.
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Hebdomadaire : attrape les nouvelles règles CodeQL sur du code qui ne bouge pas.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyse JavaScript
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # publication des alertes dans l'onglet Security
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # security-extended : plus de règles que le défaut, pertinent pour un serveur
+          # qui manipule des données hostiles (messages) et des identifiants de session.
+          queries: security-extended
+
+      - uses: github/codeql-action/analyze@v3
