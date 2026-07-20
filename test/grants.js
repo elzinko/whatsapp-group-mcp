@@ -56,9 +56,15 @@ try {
   // --- 3) Barrière d'ingestion (grant ET plafond exigés, ADR-0002) ---
   const settings = new Settings(path.join(tmp, "ingest.json"));
   settings.grant("aaa@g.us", "Autorisé");
-  const ceiling = new Allowlist(path.join(tmp, "allowlist.json"));
-  ceiling.entries = parseAllowlist({ channels: ["aaa@g.us"] });
-  const wa = new WhatsAppClient({ maxMessages: 10, persist: false }, settings, ceiling);
+  // Vrai fichier : le plafond se recharge depuis le disque à chaque décision.
+  const ceilingFile = path.join(tmp, "allowlist.json");
+  fs.writeFileSync(ceilingFile, JSON.stringify({ version: 1, channels: ["aaa@g.us"] }));
+  const ceiling = new Allowlist(ceilingFile).load();
+  const wa = new WhatsAppClient(
+    { maxMessages: 10, persist: false, allowlistFile: ceilingFile },
+    settings,
+    ceiling
+  );
 
   wa._ingest(fakeMsg("aaa@g.us", "m1"));
   wa._ingest(fakeMsg("bbb@g.us", "m2")); // canal NON autorisé

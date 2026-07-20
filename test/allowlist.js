@@ -8,7 +8,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { Allowlist, parseAllowlist, allowlistPermits } from "../src/allowlist.js";
+import { Allowlist, parseAllowlist, allowlistPermits, allowlistMatch } from "../src/allowlist.js";
 import { Settings } from "../src/settings.js";
 import { WhatsAppClient } from "../src/whatsapp.js";
 
@@ -85,9 +85,12 @@ try {
   const s2 = new Settings(path.join(tmp, "s2.json"));
   s2.grant("in@g.us", "Dedans");
   s2.grant("out@g.us", "Dehors"); // granté mais PAS au plafond
-  const ceiling = new Allowlist(path.join(tmp, "c2.json"));
-  ceiling.entries = parseAllowlist({ channels: ["in@g.us"] });
-  const wa = new WhatsAppClient({ maxMessages: 10, persist: false, allowlistFile: "c2.json" }, s2, ceiling);
+  // NB : on écrit un vrai fichier (et pas `entries = …`) car le plafond se recharge
+  // depuis le disque à chaque décision — c'est le comportement de production.
+  const c2 = path.join(tmp, "c2.json");
+  fs.writeFileSync(c2, JSON.stringify({ version: 1, channels: ["in@g.us"] }));
+  const ceiling = new Allowlist(c2).load();
+  const wa = new WhatsAppClient({ maxMessages: 10, persist: false, allowlistFile: c2 }, s2, ceiling);
   wa._ingest(fakeMsg("in@g.us", "m1"));
   wa._ingest(fakeMsg("out@g.us", "m2"));
   check("granté + plafond -> ingéré", wa.stores.get("in@g.us")?.size() === 1);
@@ -128,6 +131,104 @@ try {
   wa3.confirmGrant = async ({ jid, subject }) => ({ accepted: jid === "g1@g.us" && subject === "Copro" });
   const res = await wa3.grantChannel("Copro");
   check("consentement accordé -> grant écrit", res.granted === true && s3.has("g1@g.us"));
+
+  // --- 9) RÉGRESSION (audit, défaut #1) : usurpation du plafond par le NOM -------
+  // Le nom d'un groupe est contrôlé par ses admins : un tiers peut renommer SON
+  // groupe comme une entrée de ton plafond. Une couverture par nom seul doit être
+  // refusée dès que plusieurs groupes connus portent ce nom.
+  check("match par JID -> identité forte", allowlistMatch([{ jid: "a@g.us" }], "a@g.us", "X") === "jid");
+  check(
+    "match par nom seul -> identité faible signalée",
+    allowlistMatch([{ name: "Copro" }], "a@g.us", "Copro") === "name"
+  );
+  check(
+    "le JID prime même si une autre entrée matche par nom",
+    allowlistMatch([{ name: "Copro" }, { jid: "a@g.us" }], "a@g.us", "Copro") === "jid"
+  );
+
+  const sHom = new Settings(path.join(tmp, "s4.json"));
+  const c4 = path.join(tmp, "c4.json");
+  fs.writeFileSync(c4, JSON.stringify({ version: 1, channels: ["Copro"] })); // entrée par NOM
+  const cHom = new Allowlist(c4).load();
+  const waHom = readyClient(
+    { maxMessages: 10, persist: false, allowlistFile: c4 },
+    sHom,
+    cHom,
+    [
+      { id: "legit@g.us", subject: "Copro" },
+      { id: "usurpateur@g.us", subject: "Copro" }, // un tiers a renommé son groupe
+    ]
+  );
+  await waHom._refreshGroups();
+  check(
+    "homonymes -> le groupe usurpateur est REFUSÉ",
+    waHom._ceilingHas("usurpateur@g.us") === false
+  );
+  check(
+    "homonymes -> le groupe légitime est refusé aussi (ambiguïté, fail closed)",
+    waHom._ceilingHas("legit@g.us") === false
+  );
+  // Le JID exact reste la parade : il lève l'ambiguïté (édition à chaud du fichier).
+  fs.writeFileSync(
+    c4,
+    JSON.stringify({ version: 1, channels: [{ jid: "legit@g.us", name: "Copro" }] })
+  );
+  check("entrée par JID -> légitime autorisé", waHom._ceilingHas("legit@g.us") === true);
+  check("entrée par JID -> usurpateur refusé", waHom._ceilingHas("usurpateur@g.us") === false);
+
+  // --- 9b) RÉGRESSION (audit, défaut #6) : list_groups borné au plafond ----------
+  // Renvoyer tous les groupes exposait la cartographie sociale complète à un LLM.
+  // Seul le terminal (npm run list-groups) voit tout — un humain, hors conversation.
+  const sMenu = new Settings(path.join(tmp, "s6.json"));
+  const c6 = path.join(tmp, "c6.json");
+  fs.writeFileSync(c6, JSON.stringify({ version: 1, channels: ["ok@g.us"] }));
+  const waMenu = readyClient(
+    { maxMessages: 10, persist: false, allowlistFile: c6 },
+    sMenu,
+    new Allowlist(c6).load(),
+    [
+      { id: "ok@g.us", subject: "Au plafond" },
+      { id: "prive1@g.us", subject: "Groupe privé 1" },
+      { id: "prive2@g.us", subject: "Groupe privé 2" },
+    ]
+  );
+  const menu = await waMenu.listGroups();
+  check("list_groups ne renvoie que les canaux du plafond", menu.groups.length === 1);
+  check("list_groups : le bon canal", menu.groups[0].id === "ok@g.us");
+  check("list_groups : les autres sont comptés, pas nommés", menu.hidden === 2);
+  check(
+    "list_groups : aucun nom/JID hors plafond ne fuite",
+    !JSON.stringify(menu).includes("prive1@g.us") && !JSON.stringify(menu).includes("Groupe privé")
+  );
+
+  // --- 10) RÉGRESSION (audit, défaut #2) : retrait à chaud du plafond ------------
+  // Éditer allowlist.json pour couper un canal doit être effectif IMMÉDIATEMENT,
+  // sans redémarrage (promesse du README et de l'ADR-0002).
+  const hotFile = path.join(tmp, "hot.json");
+  fs.writeFileSync(hotFile, JSON.stringify({ version: 1, channels: ["chaud@g.us"] }));
+  const sHot = new Settings(path.join(tmp, "s5.json"));
+  sHot.grant("chaud@g.us", "Chaud");
+  const cHot = new Allowlist(hotFile).load();
+  const waHot = new WhatsAppClient(
+    { maxMessages: 10, persist: false, allowlistFile: hotFile },
+    sHot,
+    cHot
+  );
+  waHot._ingest(fakeMsg("chaud@g.us", "avant"));
+  check("avant retrait : ingestion et lecture OK", waHot.recentFor("chaud@g.us", 5).messages.length === 1);
+
+  // L'humain vide le plafond à la main, serveur en marche.
+  fs.writeFileSync(hotFile, JSON.stringify({ version: 1, channels: [] }));
+  waHot._ingest(fakeMsg("chaud@g.us", "apres"));
+  check(
+    "après retrait à chaud : plus AUCUNE ingestion (sans redémarrage)",
+    waHot.stores.get("chaud@g.us")?.size() === 1
+  );
+  await expectThrow(
+    "après retrait à chaud : lecture refusée (canal suspendu)",
+    () => waHot.recentFor("chaud@g.us", 5),
+    /suspendu/i
+  );
 } catch (e) {
   console.error("Erreur test:", e);
   failed = true;

@@ -119,6 +119,33 @@ doit pas pouvoir franchir seul.
 - Le jour où `send` revient : le contrat de l'ADR-0001 tient toujours ; l'élicitation
   désormais implémentée en était le prérequis.
 
+## Audit de pré-publication (2026-07-19)
+
+Avant le passage du dépôt en public, un audit de sécurité a reproduit **deux défauts
+qui cassaient les invariants ci-dessus**. Corrigés, avec tests de régression :
+
+1. **Le plafond par NOM était usurpable.** Le nom d'un groupe est contrôlé par ses
+   administrateurs : un tiers pouvait renommer *son* groupe comme une entrée du plafond
+   et devenir autorisable (le formulaire d'élicitation affichait alors le nom usurpé).
+   Impact borné en lecture seule — pas d'exfiltration, mais un amplificateur d'injection
+   de prompt. **Correctif** : le JID fait foi (`allowlistMatch` distingue `"jid"` de
+   `"name"`) ; une couverture par nom seul est refusée dès que **plusieurs** groupes
+   connus portent ce nom.
+2. **Le retrait d'un canal du plafond était sans effet à chaud.** Le fichier n'était
+   rechargé qu'au démarrage et lors d'un grant : l'ingestion et la lecture continuaient
+   sur un plafond périmé, contredisant la promesse « sans redémarrage » et la notion de
+   grant *suspendu*. **Correctif** : `Allowlist.refresh()` (cache sur mtime+taille,
+   un `stat` par décision) appelé dans `_ceilingHas`, donc sur tous les chemins.
+
+Corrigés au passage : ciblage exact dans `scripts/stop.js` (il pouvait tuer le
+`src/index.js` d'un autre projet), et permissions `0700/0600` sur `auth/`, `data/`,
+`settings.json`, `allowlist.json` (les identifiants de session et les messages étaient
+lisibles par tout autre compte de la machine).
+
+Jugés sains et laissés tels quels : absence de capacité d'envoi, absence de tout chemin
+d'écriture vers `allowlist.json` depuis un outil MCP, absence de traversée de chemin
+(`dataFileFor`), `stdout` réservé au JSON-RPC, consentement fail-closed.
+
 ## Actions
 
 1. [x] `src/allowlist.js` — `Allowlist` (load fail-closed, `permits` par JID/nom,

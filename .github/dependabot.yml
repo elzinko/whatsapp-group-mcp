@@ -1,0 +1,19 @@
+# Mises à jour de dépendances surveillées par Dependabot.
+# Les alertes de vulnérabilité et les correctifs automatiques sont activés côté dépôt ;
+# ce fichier ajoute la veille de routine (hors failles) et les Actions elles-mêmes.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Une seule PR pour les montées mineures/patch : moins de bruit, même sécurité.
+      mineures-et-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

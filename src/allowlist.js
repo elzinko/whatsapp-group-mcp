@@ -53,16 +53,26 @@ export function parseAllowlist(raw) {
   return entries;
 }
 
-// Le plafond autorise-t-il ce canal ? Match par JID exact, ou par nom
-// (insensible à la casse) — le nom comparé est celui résolu par Baileys ou
-// mémorisé dans le grant, jamais un texte fourni par le LLM.
-export function allowlistPermits(entries, jid, subject) {
+// Comment ce canal est-il couvert par le plafond ?
+//   "jid"  -> par JID exact : identité forte, personne d'autre ne peut l'usurper.
+//   "name" -> par nom seulement : identité FAIBLE. Le nom d'un groupe est contrôlé
+//             par ses administrateurs — un tiers peut renommer SON groupe comme le
+//             tien. L'appelant doit lever cette ambiguïté (voir _ceilingHas).
+//   null   -> hors plafond.
+// Le JID prime toujours : on scanne toutes les entrées avant de conclure à un nom.
+export function allowlistMatch(entries, jid, subject) {
   const target = normalize(subject);
+  let byName = false;
   for (const e of entries) {
-    if (e.jid && e.jid === jid) return true;
-    if (e.name && target && normalize(e.name) === target) return true;
+    if (e.jid && e.jid === jid) return "jid";
+    if (e.name && target && normalize(e.name) === target) byName = true;
   }
-  return false;
+  return byName ? "name" : null;
+}
+
+// Le plafond autorise-t-il ce canal ? (sans distinguer la force de l'identité)
+export function allowlistPermits(entries, jid, subject) {
+  return allowlistMatch(entries, jid, subject) !== null;
 }
 
 export class Allowlist {
@@ -70,6 +80,30 @@ export class Allowlist {
     this.file = file;
     this.entries = [];
     this.exists = false;
+    this._signature = null; // mtime+taille du dernier chargement (cf. refresh)
+  }
+
+  // Recharge SI le fichier a changé. Appelé sur les chemins chauds (ingestion,
+  // lecture) : un `stat` par appel, pas une lecture. C'est ce qui rend le retrait
+  // d'un canal effectif IMMÉDIATEMENT — le geste d'urgence de l'humain (éditer le
+  // fichier pour couper un canal) ne doit pas attendre un redémarrage.
+  refresh() {
+    let sig = "absent";
+    try {
+      const st = fs.statSync(this.file);
+      sig = `${st.mtimeMs}:${st.size}`;
+    } catch {
+      /* absent : signature "absent" */
+    }
+    if (sig !== this._signature) {
+      this._signature = sig;
+      this.load();
+    }
+    return this;
+  }
+
+  match(jid, subject) {
+    return allowlistMatch(this.entries, jid, subject);
   }
 
   // (Re)charge le fichier. Appelé au démarrage ET avant chaque décision de grant,
@@ -107,9 +141,9 @@ export class Allowlist {
         "(…@g.us), ou { jid, name }. Un canal absent d'ici n'est ni autorisable ni lisible.",
       channels,
     };
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
+    fs.mkdirSync(path.dirname(this.file), { recursive: true, mode: 0o700 });
     const tmp = `${this.file}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n");
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n", { mode: 0o600 });
     fs.renameSync(tmp, this.file);
     return this.load();
   }

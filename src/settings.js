@@ -54,10 +54,11 @@ export class Settings {
       version: VERSION,
       grants: this.list(),
     };
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
+    fs.mkdirSync(path.dirname(this.file), { recursive: true, mode: 0o700 });
     // Écriture atomique : pas de settings.json à moitié écrit si ça coupe.
+    // mode 0600 : les canaux autorisés sont une donnée privée (noms/JID de tes groupes).
     const tmp = `${this.file}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n");
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n", { mode: 0o600 });
     fs.renameSync(tmp, this.file);
   }
 

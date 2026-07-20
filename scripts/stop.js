@@ -9,8 +9,14 @@
 // un motif trop large tuerait les sessions Claude elles-mêmes.
 
 import { execSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const TARGET = "src/index.js";
+// Chemin ABSOLU de notre entrée. Comparer à la sous-chaîne "src/index.js" tuerait
+// les serveurs d'autres projets portant ce chemin très banal (audit, défaut #3).
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const ENTRY = path.join(projectRoot, "src", "index.js");
+const RELATIVE_ENTRY = path.join("src", "index.js"); // lancement depuis la racine du projet
 
 let out = "";
 try {
@@ -27,8 +33,15 @@ for (const line of out.split("\n")) {
   const [, pid, comm, args] = m;
   if (Number(pid) === process.pid) continue;
   if (!(comm === "node" || comm.endsWith("/node"))) continue; // exclut les binaires Claude
-  if (!args.includes(TARGET)) continue;
   if (args.includes("scripts/stop.js")) continue; // pas nous-mêmes
+  // Ciblage EXACT : on ne tue que NOTRE entrée, jamais un src/index.js homonyme
+  // appartenant à un autre projet. On accepte la forme absolue et la forme relative
+  // (lancement depuis la racine du projet), en découpant sur les arguments.
+  const argv = args.split(/\s+/);
+  const targetsUs = argv.some(
+    (a) => a === ENTRY || path.resolve(projectRoot, a) === ENTRY || a === RELATIVE_ENTRY
+  );
+  if (!targetsUs) continue;
   victims.push({ pid: Number(pid), args: args.trim() });
 }
 

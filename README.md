@@ -100,6 +100,10 @@ Avant tout grant, il y a **le plafond** ([ADR-0002](docs/adr/0002-le-plafond-et-
   capacité n'existe pas dans le code. Un LLM ne peut donc jamais élargir son propre
   périmètre, quel que soit le mode de permissions du client.
 - Une entrée = un nom exact de groupe, un JID (`…@g.us`), ou `{ "jid": …, "name": … }`.
+  **Préfère le JID** : le nom d'un groupe est modifiable par ses administrateurs, donc
+  usurpable — un tiers peut renommer *son* groupe comme une entrée de ton plafond. Une
+  entrée par nom qui désigne **plusieurs** groupes connus est donc **refusée** (et
+  journalisée) ; le JID, lui, est une identité que personne d'autre ne contrôle.
 - Un canal **hors plafond** n'est ni autorisable, ni lisible, ni même gardé en mémoire.
   Un grant dont le canal sort du plafond est **suspendu** (pas supprimé) : le réintégrer
   au plafond le réactive.
@@ -117,8 +121,11 @@ Avant tout grant, il y a **le plafond** ([ADR-0002](docs/adr/0002-le-plafond-et-
 
 C'est l'usage normal. Une fois le serveur branché, en conversation :
 
-1. « **liste mes groupes WhatsApp** » → `list_groups` renvoie chaque groupe (nom + JID),
-   lesquels sont déjà autorisés (`granted`) et lesquels sont au plafond (`inAllowlist`).
+1. « **liste mes groupes WhatsApp** » → `list_groups` renvoie les groupes **du plafond**
+   (nom + JID) et lesquels sont déjà autorisés (`granted`). Les autres ne sont pas listés
+   — seul leur nombre apparaît : ta cartographie sociale complète n'entre jamais dans le
+   contexte d'un LLM. Pour découvrir un nouveau groupe et relever son JID, c'est le
+   terminal (`npm run list-groups`), puis une entrée ajoutée à la main au plafond.
 2. « **autorise le groupe Copro reine blanche** » → `grant_channel` l'ouvre en lecture,
    **de façon persistante** — à deux conditions :
    - le canal est **au plafond** (sinon refus : ajoute-le d'abord à la main) ;
@@ -185,7 +192,7 @@ variable d'environnement n'est nécessaire : le choix des canaux se fait en conv
 | Outil | Rôle |
 |---|---|
 | `whatsapp_status` | État de la connexion, canaux autorisés, messages en mémoire. |
-| `list_groups` | Tous les groupes du compte (id, nom, déjà autorisé ou non). Aucun message. |
+| `list_groups` | Les groupes **du plafond** (id, nom, déjà autorisé ou non) + le nombre de groupes masqués. Aucun message. |
 | `grant_channel` | Autorise **la lecture** d'un groupe, de façon persistante. |
 | `revoke_channel` | Retire l'autorisation d'un groupe. |
 | `get_recent_messages` | Messages récents d'**un** canal autorisé (`channel`, `limit`). |
