@@ -26,7 +26,7 @@ local (la clé vivrait à côté des données), mais trois mesures gratuites res
 
 ## Critères d'acceptation
 
-- [ ] `auth/` et `data/` en 700, y compris à la (re)création par le code
+- [x] `auth/` et `data/` en 700, y compris à la (re)création par le code
 - [ ] FileVault vérifié actif (constat noté ici)
 - [ ] README : une ligne « jamais dans un dossier synchronisé » dans la section sécurité
 
@@ -34,3 +34,9 @@ local (la clé vivrait à côté des données), mais trois mesures gratuites res
 
 Option différée (notée ADR-0002) : clé dans le trousseau macOS pour chiffrer l'archive
 au repos — n'ouvrir que si un besoin réel apparaît (sauvegardes partagées, multi-comptes).
+
+**2026-07-20 (clôture de session)** : le 1er critère est livré par la PR #1
+(squash `38fe51c`) — `fs.chmodSync(authDir, 0o700)` sur `auth/` (`src/whatsapp.js`)
+et 0600/0700 sur `data/`, `settings.json`, `allowlist.json` (`src/store.js`,
+`src/settings.js`). Les 2 autres critères (FileVault, note README dossier
+synchronisé) restent à faire — fiche **non shippée**, statut inchangé (`todo`).

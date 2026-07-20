@@ -27,3 +27,6 @@ allowlist-*.json
 
 # Divers OS / éditeurs
 .DS_Store
+
+# Note de handoff ezk-archive : éphémère personnel, jamais committé
+.claude/handoff.md
