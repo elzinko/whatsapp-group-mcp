@@ -1,0 +1,24 @@
+# Configuration act — valider les workflows GitHub Actions en local, sans brûler
+# de minutes cloud. Usage : `act -l`, `act --dryrun`, `act workflow_dispatch -j <job>`.
+
+# Apple Silicon : les runners GitHub sont linux/amd64. Sans ce pin, act tente arm64
+# et la plupart des images d'action explosent en "exec format error".
+--container-architecture linux/amd64
+
+# Pin des images runner. La variante "act-" (medium) suffit ici : le seul workflow
+# du repo ne fait pas de setup-node. Si un futur job utilise actions/setup-node,
+# bascule sur catthehacker/ubuntu:full-22.04 (~6 GB) — la medium casse setup-node
+# avec un "command not found" cryptique (act issue #107).
+-P ubuntu-latest=catthehacker/ubuntu:act-22.04
+-P ubuntu-22.04=catthehacker/ubuntu:act-22.04
+-P ubuntu-24.04=catthehacker/ubuntu:act-24.04
+
+# Réutilise le container entre deux runs (cache apt/node_modules) : 60s -> 10s.
+# Pour repartir propre : docker rm -f $(docker ps -aq -f name=act-)
+--reuse
+
+# Pas de --secret-file/--var-file ici : aucun workflow de ce repo n'utilise de
+# secret ni de variable. Si ça change, crée .secrets / .vars (déjà gitignorés)
+# et décommente :
+# --secret-file .secrets
+# --var-file .vars
