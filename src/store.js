@@ -23,7 +23,12 @@ export class MessageStore {
     // 0700/0600 : l'archive contient le CONTENU des messages — aucun autre compte
     // de la machine ne doit pouvoir la lire.
     fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
-    if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, "", { mode: 0o600 });
+    // Crée le fichier s'il manque, SANS jamais le tronquer s'il existe. Le drapeau
+    // "a" est atomique : un `existsSync` suivi d'un `writeFileSync` laisse une
+    // fenêtre où un autre process crée le fichier — on écraserait alors son archive.
+    // Ce projet a précisément des serveurs concurrents (cf. guerres de session 440),
+    // donc la course est réelle, pas théorique. Signalé par CodeQL (js/file-system-race).
+    fs.closeSync(fs.openSync(filePath, "a", 0o600));
     let loaded = 0;
     if (fs.existsSync(filePath)) {
       const lines = fs.readFileSync(filePath, "utf8").split(/\r?\n/);

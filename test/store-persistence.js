@@ -41,8 +41,12 @@ try {
   check("les 3 messages sont sur disque (archive complète)", lines.length === 3);
 
   // 2) Deuxième store : recharge depuis le même fichier
+  // RÉGRESSION (CodeQL js/file-system-race) : attachFile crée le fichier s'il manque,
+  // mais ne doit JAMAIS tronquer une archive existante — sinon rattacher un store à un
+  // canal déjà archivé effacerait tout son historique.
   const s2 = new MessageStore(500);
   const loaded = s2.attachFile(file);
+  check("attachFile ne tronque pas une archive existante", fs.readFileSync(file, "utf8").trim().split("\n").length === 3);
   check("rechargement lit 3 messages du disque", loaded === 3);
   check("mémoire contient 3 messages après reload", s2.size() === 3);
   const recent = s2.recent(3);
