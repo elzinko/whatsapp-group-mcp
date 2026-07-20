@@ -1,0 +1,55 @@
+# Suite de tests : la seule CI qui valide réellement le code de ce dépôt.
+# Volontairement frugale (voir les garde-fous ci-dessous) même si les minutes
+# Actions sont gratuites en public — un run inutile reste du bruit.
+name: Tests
+
+on:
+  pull_request:
+    branches: [main]
+    # Pas de CI pour une modif de doc, d'article ou de fiche backlog.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "features/**"
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "features/**"
+  # Déclenchement manuel, utile pour rejouer une suite sans pousser.
+  workflow_dispatch:
+
+# Annule les runs devenus obsolètes quand on repousse sur la même branche.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    # Garde-fou anti-runaway : la suite tourne en quelques secondes.
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 = le plancher déclaré dans package.json (engines), 22 = la version
+        # de développement. Tester les deux garde la promesse "node >=20" honnête.
+        node: ["20", "22"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      # La suite couvre : reconnexion (backoff/440), persistance disque, grants,
+      # plafond + élicitation, et un vrai handshake MCP de bout en bout.
+      - run: npm test
