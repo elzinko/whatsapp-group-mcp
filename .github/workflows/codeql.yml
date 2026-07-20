@@ -16,6 +16,12 @@ permissions:
 jobs:
   analyze:
     name: Analyse JavaScript
+    # Le code scanning n'est gratuit qu'en PUBLIC : sur un dépôt privé, l'analyse
+    # tourne mais la publication des résultats échoue (« Resource not accessible by
+    # integration » -> configuration error), ce qui laisserait un check rouge permanent
+    # sans le moindre défaut de code. On saute donc tant que le dépôt est privé ;
+    # le job s'active tout seul au passage en public.
+    if: github.event.repository.visibility == 'public'
     runs-on: ubuntu-latest
     permissions:
       security-events: write # publication des alertes dans l'onglet Security
