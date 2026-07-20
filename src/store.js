@@ -29,18 +29,29 @@ export class MessageStore {
     // Ce projet a précisément des serveurs concurrents (cf. guerres de session 440),
     // donc la course est réelle, pas théorique. Signalé par CodeQL (js/file-system-race).
     fs.closeSync(fs.openSync(filePath, "a", 0o600));
+
+    // Le fichier vient d'être créé ci-dessus : il existe forcément. Pas de
+    // `existsSync` ici — un test d'existence suivi d'une lecture serait un second
+    // TOCTOU (CodeQL js/file-system-race) doublé d'un contrôle mort. On lit
+    // directement, et l'échec de lecture est traité comme une archive vide.
+    let raw = "";
+    try {
+      raw = fs.readFileSync(filePath, "utf8");
+    } catch (e) {
+      // stderr obligatoire : stdout est réservé au JSON-RPC MCP. console.error plutôt
+      // que le log() de whatsapp.js, pour ne pas créer d'import circulaire.
+      console.error(`[whatsapp-mcp] Archive illisible (${filePath}) : ${e?.message}`);
+    }
+
     let loaded = 0;
-    if (fs.existsSync(filePath)) {
-      const lines = fs.readFileSync(filePath, "utf8").split(/\r?\n/);
-      for (const line of lines) {
-        const t = line.trim();
-        if (!t) continue;
-        try {
-          this._insert(JSON.parse(t), false); // false = ne pas ré-écrire sur disque
-          loaded++;
-        } catch {
-          // ligne corrompue ignorée
-        }
+    for (const line of raw.split(/\r?\n/)) {
+      const t = line.trim();
+      if (!t) continue;
+      try {
+        this._insert(JSON.parse(t), false); // false = ne pas ré-écrire sur disque
+        loaded++;
+      } catch {
+        // ligne corrompue ignorée
       }
     }
     return loaded;
