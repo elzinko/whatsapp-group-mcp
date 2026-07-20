@@ -98,7 +98,13 @@ export class WhatsAppClient {
     this.settings = settings; // Settings : les canaux autorisés (grants)
     // Le PLAFOND (ADR-0002) : borne les grants, l'ingestion et la lecture.
     // Absent = plafond vide = rien de servi (fail closed).
-    this.allowlist = allowlist || { entries: [], permits: () => false, load() { return this; } };
+    this.allowlist = allowlist || {
+      entries: [],
+      permits: () => false,
+      match: () => null,
+      load() { return this; },
+      refresh() { return this; },
+    };
     // Consentement humain avant chaque grant, injecté par index.js (élicitation MCP
     // quand le client la supporte). Absent = pas de cérémonie supplémentaire.
     this.confirmGrant = null;
@@ -132,9 +138,29 @@ export class WhatsAppClient {
 
   // Le plafond couvre-t-il ce canal ? Le nom comparé vient du grant (résolu par
   // Baileys à l'époque) ou du snapshot des groupes — jamais d'un texte du LLM.
+  //
+  // Deux garanties, issues de l'audit de pré-publication :
+  //   1. le plafond est RECHARGÉ s'il a changé sur disque (retrait immédiat) ;
+  //   2. une couverture par NOM seul est refusée si plusieurs groupes connus portent
+  //      ce nom — le nom est contrôlé par les admins d'un groupe, donc usurpable :
+  //      un tiers peut renommer SON groupe comme une entrée de ton plafond.
   _ceilingHas(jid) {
+    this.allowlist.refresh();
     const subject = this.settings.grants.get(jid)?.subject ?? this.knownGroups.get(jid);
-    return this.allowlist.permits(jid, subject);
+    const match = this.allowlist.match(jid, subject);
+    if (match === "jid") return true; // identité forte
+    if (match !== "name") return false;
+
+    const target = normalize(subject);
+    const homonymes = [...this.knownGroups.values()].filter((s) => normalize(s) === target);
+    if (homonymes.length > 1) {
+      log(
+        `Plafond : « ${subject} » désigne ${homonymes.length} groupes différents — ` +
+          `entrée par nom ambiguë, REFUSÉE. Remplace-la par le JID exact dans ${this.config.allowlistFile}.`
+      );
+      return false;
+    }
+    return true;
   }
 
   // 1re barrière : rien de ce qui n'est pas explicitement autorisé n'entre,
@@ -148,6 +174,17 @@ export class WhatsAppClient {
 
   async start() {
     const { state, saveCreds } = await useMultiFileAuthState(this.config.authDir);
+    // Baileys crée auth/ avec l'umask du process (souvent 0755, lisible par les autres
+    // comptes) : on referme. Ce dossier contient les identifiants de session WhatsApp —
+    // quiconque les lit peut se faire passer pour cet appareil lié.
+    try {
+      fs.chmodSync(this.config.authDir, 0o700);
+      for (const f of fs.readdirSync(this.config.authDir)) {
+        fs.chmodSync(path.join(this.config.authDir, f), 0o600);
+      }
+    } catch (e) {
+      log("Impossible de restreindre les permissions de auth/ :", e?.message);
+    }
     let version;
     try {
       ({ version } = await fetchLatestBaileysVersion());
@@ -367,21 +404,33 @@ export class WhatsAppClient {
     throw new Error(`Groupe « ${raw} » introuvable. Utilise 'list_groups' pour voir les noms et JID.`);
   }
 
-  // Le « menu » : tous les groupes du compte, avec leur état d'autorisation.
-  // Ne renvoie aucun contenu de message.
+  // Le « menu » — borné au PLAFOND. Ne renvoie aucun contenu de message.
+  //
+  // Pourquoi borné (audit de pré-publication) : renvoyer TOUS les groupes exposait la
+  // cartographie sociale complète du compte (noms, JID, tailles) à un LLM — y compris
+  // sous injection — alors que la valeur du projet est justement de garder les groupes
+  // non pertinents hors du contexte. Le seul chemin qui voit tout est le terminal
+  // (`npm run list-groups`) : un humain, hors conversation.
   async listGroups() {
     if (!this.isReady()) throw new Error("WhatsApp non connecté (scanne d'abord le QR code).");
     const all = await this._refreshGroups();
-    return Object.values(all)
-      .map((g) => ({
+    const groups = [];
+    let hidden = 0;
+    for (const g of Object.values(all)) {
+      if (!this._ceilingHas(g.id)) {
+        hidden += 1;
+        continue;
+      }
+      groups.push({
         id: g.id,
         subject: g.subject,
         participants: Array.isArray(g.participants) ? g.participants.length : undefined,
         granted: this.settings.has(g.id),
-        // Le grant n'est possible que si l'humain a mis le canal au plafond (à la main).
-        inAllowlist: this.allowlist.permits(g.id, g.subject),
-      }))
-      .sort((a, b) => (a.subject || "").localeCompare(b.subject || ""));
+        inAllowlist: true,
+      });
+    }
+    groups.sort((a, b) => (a.subject || "").localeCompare(b.subject || ""));
+    return { groups, hidden };
   }
 
   // Autorise la LECTURE d'un canal. Le nom mémorisé est toujours celui résolu par
@@ -399,7 +448,7 @@ export class WhatsAppClient {
     }
     const subject = this.knownGroups.get(jid);
 
-    this.allowlist.load(); // fraîcheur : une édition manuelle s'applique sans redémarrage
+    this.allowlist.refresh(); // fraîcheur : une édition manuelle s'applique sans redémarrage
     if (!this._ceilingHas(jid)) {
       throw new Error(
         `« ${subject} » est hors du plafond. Seul l'humain peut l'y ajouter, à la main, ` +

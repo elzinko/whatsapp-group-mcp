@@ -37,7 +37,7 @@ const TOOLS = [
   {
     name: "list_groups",
     description:
-      "Liste les groupes WhatsApp dont le compte est membre (id/JID, nom, et s'ils sont déjà autorisés). C'est le menu : à utiliser pour choisir un canal à autoriser. Ne renvoie aucun message.",
+      "Liste les groupes WhatsApp présents dans le plafond (allowlist.json) : id/JID, nom, et s'ils sont déjà autorisés en lecture. C'est le menu des canaux activables. Les groupes hors plafond ne sont PAS listés (seul leur nombre est indiqué) : pour les découvrir, l'humain lance « npm run list-groups » dans un terminal et édite le plafond à la main. Ne renvoie aucun message.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -124,8 +124,19 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         });
 
       case "list_groups": {
-        const groups = await wa.listGroups();
-        return ok({ count: groups.length, groups });
+        const { groups, hidden } = await wa.listGroups();
+        return ok({
+          count: groups.length,
+          groups,
+          hiddenOutsideAllowlist: hidden,
+          note:
+            hidden > 0
+              ? `${hidden} autre(s) groupe(s) existent mais sont hors du plafond : ils ne sont ` +
+                `pas listables ici. Pour les voir et relever leur JID, l'humain lance ` +
+                `« npm run list-groups » dans un terminal, puis ajoute l'entrée à la main ` +
+                `dans ${config.allowlistFile}.`
+              : undefined,
+        });
       }
 
       case "grant_channel":

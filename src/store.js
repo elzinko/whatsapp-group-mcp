@@ -20,7 +20,10 @@ export class MessageStore {
   // Retourne le nombre de messages chargés depuis le disque.
   attachFile(filePath) {
     this.file = filePath;
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    // 0700/0600 : l'archive contient le CONTENU des messages — aucun autre compte
+    // de la machine ne doit pouvoir la lire.
+    fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
+    if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, "", { mode: 0o600 });
     let loaded = 0;
     if (fs.existsSync(filePath)) {
       const lines = fs.readFileSync(filePath, "utf8").split(/\r?\n/);
