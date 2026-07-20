@@ -23,20 +23,27 @@ export class MessageStore {
     // 0700/0600 : l'archive contient le CONTENU des messages — aucun autre compte
     // de la machine ne doit pouvoir la lire.
     fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
-    // Crée le fichier s'il manque, SANS jamais le tronquer s'il existe. Le drapeau
-    // "a" est atomique : un `existsSync` suivi d'un `writeFileSync` laisse une
-    // fenêtre où un autre process crée le fichier — on écraserait alors son archive.
-    // Ce projet a précisément des serveurs concurrents (cf. guerres de session 440),
-    // donc la course est réelle, pas théorique. Signalé par CodeQL (js/file-system-race).
-    fs.closeSync(fs.openSync(filePath, "a", 0o600));
-
-    // Le fichier vient d'être créé ci-dessus : il existe forcément. Pas de
-    // `existsSync` ici — un test d'existence suivi d'une lecture serait un second
-    // TOCTOU (CodeQL js/file-system-race) doublé d'un contrôle mort. On lit
-    // directement, et l'échec de lecture est traité comme une archive vide.
+    // Ouverture UNIQUE, puis tout se fait via le descripteur : aucune seconde
+    // résolution du chemin, donc aucune fenêtre de course (CodeQL js/file-system-race).
+    //   - "a+" crée le fichier s'il manque et ne le tronque JAMAIS s'il existe ;
+    //   - le mode 0600 ne s'applique qu'à la création ;
+    //   - lecture à la position 0 explicite, pour ne pas dépendre de la position
+    //     initiale d'un descripteur ouvert en append (variable selon la plateforme).
+    // La course est réelle ici, pas théorique : ce projet a des serveurs concurrents
+    // (cf. guerres de session 440), et écraser une archive serait une perte de données.
     let raw = "";
     try {
-      raw = fs.readFileSync(filePath, "utf8");
+      const fd = fs.openSync(filePath, "a+", 0o600);
+      try {
+        const { size } = fs.fstatSync(fd);
+        if (size > 0) {
+          const buf = Buffer.allocUnsafe(size);
+          fs.readSync(fd, buf, 0, size, 0);
+          raw = buf.toString("utf8");
+        }
+      } finally {
+        fs.closeSync(fd);
+      }
     } catch (e) {
       // stderr obligatoire : stdout est réservé au JSON-RPC MCP. console.error plutôt
       // que le log() de whatsapp.js, pour ne pas créer d'import circulaire.
