@@ -7,7 +7,9 @@
 | # | Titre | Type | Prio | Statut | PR |
 |---|---|---|---|---|---|
 | [0001](0001-valider-adr-0002-conditions-reelles.md) | Valider l'ADR-0002 en conditions réelles (plafond, élicitation, lecture E2E) | chore | P0 | 🔴 todo | |
+| [0008](0008-repli-sans-elicitation-fail-open.md) | Repli sans élicitation — trancher fail-open ou fail-closed (et le documenter) | feature | P1 | 🔴 todo | |
 | [0003](0003-hygiene-locale-permissions-filevault.md) | Hygiène locale — permissions fichiers, FileVault, pas de dossier synchronisé | chore | P2 | 🔴 todo | |
+| [0009](0009-verrou-exclusif-auth.md) | Verrou OS exclusif sur auth/ — garde-fou anti-collision entre process | feature | P2 | 🔴 todo | |
 
 ## ⛔ Bloquées
 
@@ -31,4 +33,4 @@
 
 ---
 
-Compteurs : 7 fiches actives — 2 todo (0 ready) · 0 in-progress · 4 idea (dont 2 épics) · 1 blocked · 0 shipped.
+Compteurs : 9 fiches actives — 4 todo (0 ready) · 0 in-progress · 4 idea (dont 2 épics) · 1 blocked · 0 shipped.

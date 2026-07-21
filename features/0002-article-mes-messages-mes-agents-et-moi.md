@@ -1,6 +1,6 @@
 ---
 id: 0002
-title: "Article : « Mes messages, mes agents et moi » (le MCP comme leçon de sécurité vécue)"
+title: "Article : « La question que le LLM ne peut pas trafiquer » (le MCP comme leçon de sécurité vécue)"
 type: feature
 priority: P1
 version:
