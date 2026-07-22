@@ -60,6 +60,12 @@ exactement comme l'élicitation l'a été (fiche 0001) :
 
 ## Notes
 
+- **Décision PO (2026-07-22)** : fiche tirée **non-ready en soupape PO**, sous forme de
+  **spike de faisabilité** (pas la feature complète) — sur directive « build en suivant
+  l'ordre proposé ». Justifié : la DoR exige le relevé de faisabilité *avant* le gate
+  `ready`, or ce relevé EST l'objet du spike (chicken/egg). Périmètre : helper
+  `touchid.swift` + wrapper Node + sonde manuelle ; **câblage dans `grant_channel` hors
+  périmètre** (feature complète ultérieure, une fois la faisabilité tranchée).
 - **Relation à 0007** : ceci est le **v1 (presence check)** ; 0007 est le **v2 (signé,
   Secure Enclave, liaison à la question)**. Pour un serveur **read-only** dont le pire cas
   est « tu lis tes propres messages », le presence check est probablement **proportionné** ;
