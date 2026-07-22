@@ -22,6 +22,9 @@ et de l'avenir d'un éventuel `send`.
 
 ## Proposition
 
+> 📋 Procédure pas-à-pas (prompts à coller, vérifs, résultats attendus) :
+> [docs/tests/validation-manuelle-desktop.md](../docs/tests/validation-manuelle-desktop.md)
+
 Dans une session Claude Code fraîche (`npm run stop` d'abord) :
 
 1. « quel est le statut whatsapp ? » → relever `grantConsent`.
