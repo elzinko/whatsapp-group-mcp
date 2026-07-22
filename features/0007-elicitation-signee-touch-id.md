@@ -25,6 +25,11 @@ simple **presence check** — `LAContext.evaluatePolicy(.deviceOwnerAuthenticati
 et la garantie s'arrête au code appelant : le processus qui invoque le helper reste juge de
 ce qu'il fait du verdict. C'est exactement le cran que cette fiche dépasse.
 
+> **Ce même presence check, porté ici, est la fiche [0013](0013-garde-touchid-presence-grant.md)
+> (le « v1 »).** Cette fiche-ci est le « v2 signé ». Ordre pressenti : éprouver d'abord le
+> v1 (0013) ; ce v2 ne se justifie que si le presence check se révèle insuffisant — pour un
+> serveur read-only dont le pire cas est « tu lis tes propres messages », c'est à débattre.
+
 ## Proposition
 
 Un cran au-dessus de l'élicitation : le consentement **hors-bande, côté serveur**,
