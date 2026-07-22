@@ -42,6 +42,15 @@ exactement comme l'élicitation l'a été (fiche 0001) :
 - **Si non** → repli à trancher (grant par CLI humaine = régression UX de la conversation ;
   ou garder l'élicitation + décision 0008). Ne pas passer le gate `ready` avant ce relevé.
 
+**✅ RELEVÉ (2026-07-22) — faisabilité CONFIRMÉE.** Le helper `scripts/touchid.swift`,
+déclenché depuis un process enfant d'une session Claude Code, a **présenté la boîte système
+Touch ID** (observée par Thomas) et renvoyé `authenticated` (exit 0). `evaluatePolicy` ne
+réussit que si un prompt a été présenté ET validé → la boîte s'affiche bien depuis un process
+enfant de la session du client. **Réserve mineure** : testé via l'outil Bash (enfant du CLI
+Claude Code), pas encore depuis le process serveur MCP lui-même ni sous Desktop — contexte au
+moins aussi contraint, risque résiduel faible, à lever *in situ* quand la feature sera testée.
+⇒ **0013 débloquée : la feature complète est viable.**
+
 ## Proposition (si la faisabilité est confirmée)
 
 - Porter `scripts/touchid.swift` (presence check, ~27 lignes, `swiftc` sans Xcode).
