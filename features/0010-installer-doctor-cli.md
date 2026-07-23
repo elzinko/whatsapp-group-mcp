@@ -6,7 +6,7 @@ priority: P2
 version:
 epic:
 status: todo
-ready:
+ready: 2026-07-22
 pr:
 created: 2026-07-22
 ---
@@ -53,6 +53,15 @@ google-mcp-multi-account, `bin/gwsa`).
 
 ## Notes
 
+- **Design retenu (groom 2026-07-22)** : scripts Node sous `scripts/` (comme `stop.js`,
+  `list-groups.js`), exposés en `npm run doctor` / `npm run install:client` — ESM, zéro dép.
+  `doctor` **lit seulement**. `install` cible **Desktop** (écrit
+  `~/Library/Application Support/Claude/claude_desktop_config.json` : **backup d'abord**,
+  fusion idempotente préservant les autres serveurs, **refuse si Desktop tourne**, JSON
+  malformé → refus sûr) ; pour **Code**, imprime la commande `claude mcp add` (ne pas écrire
+  `~/.claude.json` à la main). Node stable résolu par ordre : `/opt/homebrew/bin/node` →
+  `/usr/local/bin/node` → `/usr/bin/node` → `process.execPath` (warning si seulement nvm).
+  macOS d'abord.
 - Absorbe proprement l'envie « que ça se configure tout seul » (Q du 2026-07-22) **sans**
   donner au serveur un pouvoir d'écriture sur la config client — la frontière est tenue
   par [0012](0012-adr-serveur-ne-configure-pas-le-client.md).
