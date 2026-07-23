@@ -57,6 +57,6 @@ google-mcp-multi-account, `bin/gwsa`).
   donner au serveur un pouvoir d'écriture sur la config client — la frontière est tenue
   par [0012](0012-adr-serveur-ne-configure-pas-le-client.md).
 - Précédent : `bin/gwsa` + `scripts/provision-gcp.sh` de
-  `/Users/elzinko/git/google-mcp-multi-account` (CLI humaine qui range, `execFile`, jamais
+  `~/git/google-mcp-multi-account` (CLI humaine qui range, `execFile`, jamais
   de shell). À épouser, pas à réinventer.
 - Se marie avec [0011](0011-outil-aide-mcp.md) (aide) : `doctor` en CLI, `help` en outil MCP.

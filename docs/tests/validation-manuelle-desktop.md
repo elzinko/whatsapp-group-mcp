@@ -23,7 +23,7 @@ statut WhatsApp ? » — s'il répond, c'est branché ; s'il dit ne pas avoir l'
 - **Vérifier :** `claude mcp list` (doit lister `whatsapp-group`), ou demander le statut en session.
 - **Configurer si absent :**
   ```bash
-  claude mcp add whatsapp-group -- node /Users/elzinko/git/bacasable/whatsapp-group-mcp/src/index.js
+  claude mcp add whatsapp-group -- node /CHEMIN/ABSOLU/VERS/whatsapp-group-mcp/src/index.js
   ```
 
 ### Claude Desktop
@@ -36,7 +36,7 @@ statut WhatsApp ? » — s'il répond, c'est branché ; s'il dit ne pas avoir l'
   ```json
   "whatsapp-group": {
     "command": "/opt/homebrew/bin/node",
-    "args": ["/Users/elzinko/git/bacasable/whatsapp-group-mcp/src/index.js"]
+    "args": ["/CHEMIN/ABSOLU/VERS/whatsapp-group-mcp/src/index.js"]
   }
   ```
   Un écart **volontaire** avec le bloc du README, propre à cette machine : **`command` =
@@ -252,7 +252,7 @@ AVANT tout, vérifie que tu as bien accès aux outils du serveur « whatsapp-gro
    2. Éditer « ~/Library/Application Support/Claude/claude_desktop_config.json » et fusionner, sous la clé mcpServers (sans toucher aux serveurs déjà présents), le bloc :
         "whatsapp-group": {
           "command": "/opt/homebrew/bin/node",
-          "args": ["/Users/elzinko/git/bacasable/whatsapp-group-mcp/src/index.js"]
+          "args": ["/CHEMIN/ABSOLU/VERS/whatsapp-group-mcp/src/index.js"]
         }
    3. Rouvrir Desktop.
   Rappelle-moi : « command » doit être un chemin absolu vers node (Desktop n'a ni nvm ni Homebrew dans son PATH, un « node » nu échouerait) ; PAS de WHATSAPP_AUTH_DIR (Desktop partage le ./auth déjà appairé par Claude Code) ; et un seul client à la fois tient la session ./auth (sinon 440) — donc couper les serveurs Code avec « npm run stop » avant de tester dans Desktop. Ensuite STOP.

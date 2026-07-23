@@ -99,5 +99,5 @@ Base déjà livrée au spike : `scripts/touchid.swift` (presence check) + `src/t
   arbitrer — ne pas construire le signé avant d'avoir éprouvé le presence check.
 - Symétrie avec google-mcp : eux ont livré le v1 et attendent whatsapp 0007 pour le v2 signé ;
   ici on ferait le v1 en second, le v2 (0007) en pionnier. Les deux fiches se citent.
-- Prior art : `/Users/elzinko/git/google-mcp-multi-account/scripts/touchid.swift`,
+- Prior art : `~/git/google-mcp-multi-account/scripts/touchid.swift`,
   `bin/gwsa` (`require_strong_auth`), README §« Authentification forte (Touch ID) ».
