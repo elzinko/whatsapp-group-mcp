@@ -5,9 +5,9 @@ type: feature
 priority: P2
 version:
 epic:
-status: todo
+status: shipped
 ready: 2026-07-22
-pr:
+pr: "merge local e096a7a (non poussé)"
 created: 2026-07-22
 ---
 
@@ -73,16 +73,16 @@ Base déjà livrée au spike : `scripts/touchid.swift` (presence check) + `src/t
 
 ## Critères d'acceptation
 
-- [x] Faisabilité relevée : la boîte Touch ID s'affiche depuis un process de session Claude
-      Code (2026-07-22) ; confirmation *in situ* depuis le serveur MCP au test E2E de la feature
-- [ ] Drapeau d'activation **human-only, défaut ON** ; **aucun outil MCP ne le bascule**
-- [ ] Drapeau ON : `grant_channel` n'accorde qu'après un verdict biométrique positif ; la boîte **nomme le canal**
-- [ ] **Fail-closed** : refus/échec de la cérémonie → grant refusé (jamais d'accord silencieux)
-- [ ] Plafond vérifié **avant** le prompt Touch ID (pas de prompt pour un hors-plafond)
-- [ ] Drapeau OFF → comportement d'élicitation actuel **inchangé**
-- [ ] `revoke_channel` et les lectures **non impactés**
-- [ ] Tests : contrat du wrapper (livré) + intégration `grant_channel` (drapeau ON/OFF, fail-closed) ; la biométrie reste un relevé humain (E2E)
-- [ ] ADR : hiérarchie de consentement + amendement ADR-0002 ; drapeau documenté au README
+- [x] Faisabilité relevée + **E2E in situ CONFIRMÉ (2026-07-22)** : la boîte Touch ID
+      s'affiche sur un vrai grant, depuis le vrai serveur MCP, en nommant le canal (relevé Thomas)
+- [x] Drapeau d'activation **human-only, défaut ON** ; **aucun outil MCP ne le bascule**
+- [x] Drapeau ON : `grant_channel` n'accorde qu'après un verdict biométrique positif ; la boîte **nomme le canal**
+- [x] **Fail-closed** : refus/échec de la cérémonie → grant refusé (jamais d'accord silencieux)
+- [x] Plafond vérifié **avant** le prompt Touch ID (pas de prompt pour un hors-plafond)
+- [x] Drapeau OFF → comportement d'élicitation actuel **inchangé**
+- [x] `revoke_channel` et les lectures **non impactés**
+- [x] Tests : contrat du wrapper + intégration `grant_channel` (drapeau ON/OFF, fail-closed) — 9 suites vertes ; la biométrie reste un relevé humain (E2E, fait)
+- [x] ADR : hiérarchie de consentement + amendement ADR-0002 ; drapeau documenté au README
 
 ## Notes
 
