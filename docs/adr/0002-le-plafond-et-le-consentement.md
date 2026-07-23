@@ -4,6 +4,7 @@
 **Date :** 2026-07-18
 **Décideurs :** Thomas (propriétaire du projet et du compte WhatsApp)
 **Amende :** ADR-0001 (le lieu du contrôle d'accès ; tout le reste de 0001 survit intact)
+**Amendé par :** ADR-0003 (le consentement peut désormais être scellé par présence physique — voir note ci-dessous)
 
 ## Contexte
 
@@ -72,6 +73,17 @@ Deux mécanismes complémentaires, du plus dur au plus souple :
   pire cas redevient « un canal que l'humain avait déjà mis au plafond est activé sans
   formulaire » — de la minimisation en moins, pas une brèche.
 - `whatsapp_status` expose le mode de consentement effectif (`grantConsent`).
+
+> **Note d'amendement (ADR-0003, 2026-07-23).** Le repli ci-dessus (« client sans
+> élicitation → permissions du client, fail-open ») avait un angle mort assumé : rien ne
+> prouvait qu'un humain était présent au grant. L'ADR-0003 ajoute un **troisième cran de
+> consentement, imposé côté serveur et donc client-indépendant** : un **presence check
+> Touch ID** sur `grant_channel`. Hiérarchie : permissions client (faible) < élicitation <
+> **Touch ID (présence physique prouvée)**. Activé par défaut via un drapeau `strong-auth.json`
+> **human-only** (aucun outil MCP ne le bascule — même doctrine que le plafond ci-dessous).
+> Quand le drapeau est ON, le Touch ID **remplace** l'élicitation et ferme le fail-open de la
+> fiche 0008 ; quand il est OFF, tout ce qui précède reste inchangé. Détails et schémas :
+> [ADR-0003](0003-consentement-par-presence-touch-id.md).
 
 ### Ce qui est explicitement rejeté ou différé
 

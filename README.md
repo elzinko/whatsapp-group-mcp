@@ -117,6 +117,25 @@ Avant tout grant, il y a **le plafond** ([ADR-0002](docs/adr/0002-le-plafond-et-
 }
 ```
 
+## Consentement renforcé : Touch ID sur les grants (ADR-0003)
+
+Par défaut, **autoriser un canal exige une présence physique** : quand tu demandes un grant,
+macOS affiche une boîte **Touch ID** (ou Apple Watch / mot de passe de session). Le doigt
+**est** le consentement — un LLM ne peut pas le fabriquer, même prompt-injecté. C'est le cran
+au-dessus de l'élicitation ([ADR-0003](docs/adr/0003-consentement-par-presence-touch-id.md)) :
+permissions client < élicitation < **Touch ID**.
+
+- **Actif par défaut**, sans rien configurer. **Fail-closed** : pas de doigt, pas de grant.
+- Concerne **uniquement les grants** — ni la lecture, ni la révocation.
+- Pour **désarmer** (revenir à l'élicitation seule), crée à la main, à côté d'`allowlist.json`,
+  un fichier `strong-auth.json` (chemin réglable par `WHATSAPP_STRONG_AUTH_FILE`) contenant :
+  ```json
+  { "enabled": false }
+  ```
+  Comme le plafond, **seul l'humain édite ce fichier** — aucun outil MCP ne peut le modifier,
+  donc un LLM ne peut pas se désarmer lui-même. Absence ou fichier illisible = **actif**
+  (fail-secure vers le haut : l'incertitude ne désarme jamais).
+
 ## Choisir les groupes — depuis ton LLM
 
 C'est l'usage normal. Une fois le serveur branché, en conversation :

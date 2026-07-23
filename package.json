@@ -13,14 +13,16 @@
     "start": "node src/index.js",
     "stop": "node scripts/stop.js",
     "list-groups": "node scripts/list-groups.js",
-    "test": "node test/reconnect-plan.js && node test/store-persistence.js && node test/grants.js && node test/allowlist.js && node test/elicitation.js && node test/touchid.js && node test/mcp-smoke.js",
+    "test": "node test/reconnect-plan.js && node test/store-persistence.js && node test/grants.js && node test/allowlist.js && node test/elicitation.js && node test/touchid.js && node test/strongauth.js && node test/consent-strongauth.js && node test/mcp-smoke.js",
     "test:allowlist": "node test/allowlist.js",
     "test:elicitation": "node test/elicitation.js",
+    "test:touchid": "node test/touchid.js",
+    "test:strongauth": "node test/strongauth.js",
+    "test:consent-strongauth": "node test/consent-strongauth.js",
     "test:store": "node test/store-persistence.js",
     "test:grants": "node test/grants.js",
     "test:mcp": "node test/mcp-smoke.js",
-    "test:reconnect": "node test/reconnect-plan.js",
-    "test:touchid": "node test/touchid.js"
+    "test:reconnect": "node test/reconnect-plan.js"
   },
   "engines": {
     "node": ">=20"

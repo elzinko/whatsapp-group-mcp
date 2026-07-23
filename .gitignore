@@ -22,6 +22,10 @@ settings-*.json
 allowlist.json
 allowlist-*.json
 
+# Drapeau d'authentification forte (ADR-0003) : désarmement manuel local -> jamais commité
+strong-auth.json
+strong-auth-*.json
+
 # Logs
 *.log
 

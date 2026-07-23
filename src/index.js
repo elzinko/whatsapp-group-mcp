@@ -17,7 +17,9 @@ import {
 import { config } from "./config.js";
 import { Settings } from "./settings.js";
 import { Allowlist } from "./allowlist.js";
-import { buildConfirmGrant } from "./consent.js";
+import { buildConfirmGrant, buildGrantConsent } from "./consent.js";
+import { readStrongAuthEnabled } from "./strongauth.js";
+import { checkPresence } from "./touchid.js";
 import { WhatsAppClient, log } from "./whatsapp.js";
 
 const settings = new Settings(config.settingsFile).load();
@@ -118,9 +120,11 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       case "whatsapp_status":
         return ok({
           ...wa.status(),
-          grantConsent: clientSupportsElicitation
-            ? "élicitation (formulaire rédigé par le serveur, hors de portée du LLM)"
-            : "permissions du client MCP (le client ne supporte pas l'élicitation)",
+          grantConsent: readStrongAuthEnabled(config.strongAuthFile)
+            ? "Touch ID (présence physique — hiérarchie ADR-0003)"
+            : clientSupportsElicitation
+              ? "élicitation (formulaire rédigé par le serveur, hors de portée du LLM)"
+              : "permissions du client MCP (le client ne supporte pas l'élicitation)",
         });
 
       case "list_groups": {
@@ -188,7 +192,13 @@ server.oninitialized = () => {
   log("Elicitation supportée par ce client :", clientSupportsElicitation ? "OUI" : "non");
 };
 
-wa.confirmGrant = buildConfirmGrant(server, () => clientSupportsElicitation, log);
+const elicitationConsent = buildConfirmGrant(server, () => clientSupportsElicitation, log);
+wa.confirmGrant = buildGrantConsent({
+  isStrongAuthEnabled: () => readStrongAuthEnabled(config.strongAuthFile),
+  checkPresence,
+  elicitationConsent,
+  log,
+});
 
 async function main() {
   // 1) Démarre WhatsApp (affiche un QR sur stderr si pas encore appairé).

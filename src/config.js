@@ -58,6 +58,12 @@ const allowlistFile = process.env.WHATSAPP_ALLOWLIST_FILE
   ? path.resolve(projectRoot, process.env.WHATSAPP_ALLOWLIST_FILE)
   : path.join(projectRoot, "allowlist.json");
 
+// Drapeau d'authentification forte (Touch ID) sur grant_channel (ADR-0003). Absent ->
+// ON par défaut ; {"enabled":false} désarme à la main. Voir src/strongauth.js.
+const strongAuthFile = process.env.WHATSAPP_STRONG_AUTH_FILE
+  ? path.resolve(projectRoot, process.env.WHATSAPP_STRONG_AUTH_FILE)
+  : path.join(projectRoot, "strong-auth.json");
+
 export const config = {
   projectRoot,
   // Amorçage uniquement : au tout premier démarrage, si aucun grant n'existe encore,
@@ -76,6 +82,7 @@ export const config = {
   dataDir,
   settingsFile,
   allowlistFile,
+  strongAuthFile,
 };
 
 // Un JID de groupe WhatsApp se termine toujours par "@g.us".

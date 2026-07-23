@@ -32,3 +32,33 @@ export function buildConfirmGrant(server, isElicitationSupported, log = () => {}
     }
   };
 }
+
+// Garde Touch ID sur grant_channel (ADR-0003), au-dessus de l'élicitation (ADR-0002) :
+// quand le drapeau strong-auth est ON, seule une présence physique authentifiée
+// (Touch ID / Watch / mot de passe de session) consent le grant — FAIL CLOSED sur
+// tout ce qui n'est pas un succès explicite (refus, indisponibilité, erreur, timeout).
+// Quand il est OFF, comportement ADR-0002 inchangé (élicitation ou repli permissions).
+export function buildGrantConsent({
+  isStrongAuthEnabled,
+  checkPresence,
+  elicitationConsent,
+  log = () => {},
+}) {
+  return async ({ jid, subject }) => {
+    if (isStrongAuthEnabled()) {
+      const reason = `Autoriser la lecture du groupe WhatsApp « ${subject} » ?`;
+      let res;
+      try {
+        res = await checkPresence({ reason });
+      } catch (e) {
+        // Fail closed : toute exception de la cérémonie = refus (comme buildConfirmGrant).
+        log("Touch ID: cérémonie impossible :", e?.message);
+        return { accepted: false, reason: "Touch ID: cérémonie impossible" };
+      }
+      if (res?.ok) return { accepted: true, via: "touchid" };
+      log("Touch ID refusé :", res?.status || "échec");
+      return { accepted: false, reason: `Touch ID: ${res?.status || "échec"}` };
+    }
+    return elicitationConsent({ jid, subject }); // OFF -> comportement ADR-0002 inchangé
+  };
+}
