@@ -1,0 +1,90 @@
+// Tests des helpers purs de src/setup.js (fiche 0010). Aucun accès au vrai fichier de
+// config Desktop de l'utilisateur — tout est en mémoire, fs/exec injectés.
+
+import {
+  nodeVersionOk,
+  resolveStableNode,
+  mergeMcpServer,
+  desktopConfigPath,
+} from "../src/setup.js";
+
+let failed = false;
+function check(label, cond) {
+  console.log(`${cond ? "OK  " : "FAIL"}  ${label}`);
+  if (!cond) failed = true;
+}
+
+// --- nodeVersionOk ---
+check("v20.0.0 -> ok", nodeVersionOk("v20.0.0") === true);
+check("v22.18.0 -> ok", nodeVersionOk("v22.18.0") === true);
+check("v18.19.0 -> non", nodeVersionOk("v18.19.0") === false);
+check("v16 -> non", nodeVersionOk("v16.20.0") === false);
+check("sans 'v' (20.1.0) -> ok", nodeVersionOk("20.1.0") === true);
+check("format bizarre -> non (fail-safe)", nodeVersionOk("banane") === false);
+check("undefined -> non", nodeVersionOk(undefined) === false);
+
+// --- resolveStableNode ---
+check(
+  "homebrew présent -> choisi en premier",
+  resolveStableNode((p) => p === "/opt/homebrew/bin/node").path === "/opt/homebrew/bin/node"
+);
+check(
+  "pas de homebrew -> /usr/local ensuite",
+  resolveStableNode((p) => p === "/usr/local/bin/node").path === "/usr/local/bin/node"
+);
+{
+  const r = resolveStableNode(() => false, "/Users/x/.nvm/versions/node/v22/bin/node");
+  check("aucun stable -> fallback execPath", r.path === "/Users/x/.nvm/versions/node/v22/bin/node");
+  check("aucun stable -> warning présent", typeof r.warning === "string" && r.warning.length > 0);
+}
+check(
+  "un stable trouvé -> pas de warning",
+  resolveStableNode((p) => p === "/usr/bin/node").warning === null
+);
+
+// --- mergeMcpServer : ne JAMAIS clobber les autres serveurs (le point critique) ---
+{
+  const existing = {
+    mcpServers: {
+      "shopify-dev-mcp": { command: "npx", args: ["shopify"] },
+      render: { command: "render", env: { TOKEN: "secret-render" } },
+    },
+    preferences: { theme: "dark" },
+  };
+  const merged = mergeMcpServer(existing, "whatsapp-group", {
+    command: "/opt/homebrew/bin/node",
+    args: ["/abs/src/index.js"],
+  });
+  check("shopify préservé", merged.mcpServers["shopify-dev-mcp"]?.command === "npx");
+  check(
+    "render préservé (avec son env/secret)",
+    merged.mcpServers.render?.env?.TOKEN === "secret-render"
+  );
+  check(
+    "whatsapp-group ajouté",
+    merged.mcpServers["whatsapp-group"]?.command === "/opt/homebrew/bin/node"
+  );
+  check("clé racine preferences préservée", merged.preferences?.theme === "dark");
+  check("objet d'origine NON muté", existing.mcpServers["whatsapp-group"] === undefined);
+}
+{
+  let cfg = mergeMcpServer({}, "whatsapp-group", { command: "old" });
+  cfg = mergeMcpServer(cfg, "whatsapp-group", { command: "new" });
+  check("config {} -> crée mcpServers", cfg.mcpServers["whatsapp-group"]?.command === "new");
+  check("idempotent : une seule entrée whatsapp-group", Object.keys(cfg.mcpServers).length === 1);
+}
+check(
+  "mcpServers absent -> géré",
+  mergeMcpServer({ preferences: {} }, "x", { command: "c" }).mcpServers.x.command === "c"
+);
+
+// --- desktopConfigPath ---
+check(
+  "chemin Desktop macOS",
+  desktopConfigPath("/Users/test").endsWith(
+    "/Library/Application Support/Claude/claude_desktop_config.json"
+  )
+);
+
+console.log(failed ? "\n=== RÉSULTAT: ÉCHEC ===" : "\n=== RÉSULTAT: SUCCÈS ===");
+process.exit(failed ? 1 : 0);
