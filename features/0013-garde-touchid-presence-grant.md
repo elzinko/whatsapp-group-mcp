@@ -5,8 +5,8 @@ type: feature
 priority: P2
 version:
 epic:
-status: idea
-ready:
+status: todo
+ready: 2026-07-22
 pr:
 created: 2026-07-22
 ---
@@ -51,21 +51,38 @@ Claude Code), pas encore depuis le process serveur MCP lui-même ni sous Desktop
 moins aussi contraint, risque résiduel faible, à lever *in situ* quand la feature sera testée.
 ⇒ **0013 débloquée : la feature complète est viable.**
 
-## Proposition (si la faisabilité est confirmée)
+## Proposition (groomée le 2026-07-22 — faisabilité confirmée)
 
-- Porter `scripts/touchid.swift` (presence check, ~27 lignes, `swiftc` sans Xcode).
-- Un drapeau d'activation (ex. `strongauth on|off`, comme google-mcp) — **optionnel** :
-  activé, `grant_channel` exige Touch ID ; désactivé, on retombe sur l'élicitation.
-- Le chemin de l'interpréteur Swift **résolu en absolu** (leçon du piège node/PATH, 0010).
-- Repli explicite si biométrie indisponible : **jamais d'accord silencieux** (fail closed).
+Base déjà livrée au spike : `scripts/touchid.swift` (presence check) + `src/touchid.js`
+(wrapper fail-closed, swift en chemin absolu). Reste à **câbler dans `grant_channel`** :
 
-## Critères d'acceptation (esquisse — à compléter au grooming, après le relevé de faisabilité)
+- **Activation : drapeau, défaut ON** (fourche PO tranchée). Touch ID exigé sur chaque grant
+  dès l'installation quand la biométrie/mot de passe est disponible.
+- **Le drapeau est *human-only*** : fichier à côté d'`allowlist.json`, **aucun outil MCP ne
+  le bascule** — sinon un LLM confus le couperait (même doctrine que le plafond, ADR-0002).
+- **Le Touch ID remplace l'élicitation** quand actif : le doigt EST le consentement. La boîte
+  **nomme le canal** (« Autoriser la lecture du groupe WhatsApp « X » ? »). Drapeau OFF →
+  comportement d'élicitation actuel inchangé (le cas fail-open reste la décision de 0008).
+- **Ordre** : plafond vérifié **d'abord**, Touch ID **ensuite** (pas de prompt pour un
+  canal hors-plafond qui sera refusé de toute façon).
+- **Fail-closed** : cérémonie refusée/échouée → grant refusé. Pas de lockout (repli mot de
+  passe macOS via `.deviceOwnerAuthentication`).
+- **Périmètre** : `grant_channel` seulement — pas les lectures, pas `revoke_channel`.
+- **ADR** : tracer la hiérarchie de consentement (permissions client < élicitation < Touch ID)
+  et amender l'ADR-0002.
 
-- [ ] Faisabilité relevée : la boîte Touch ID s'affiche (ou non) depuis le serveur MCP sous Desktop ET Code
-- [ ] Quand activé : `grant_channel` n'accorde qu'après un verdict biométrique positif
-- [ ] Biométrie indisponible → refus motivé, jamais d'accord silencieux
-- [ ] Interaction avec 0008 tranchée (Touch ID activé = consentement client-indépendant)
-- [ ] Repli documenté (Touch ID désactivé : quel consentement ?)
+## Critères d'acceptation
+
+- [x] Faisabilité relevée : la boîte Touch ID s'affiche depuis un process de session Claude
+      Code (2026-07-22) ; confirmation *in situ* depuis le serveur MCP au test E2E de la feature
+- [ ] Drapeau d'activation **human-only, défaut ON** ; **aucun outil MCP ne le bascule**
+- [ ] Drapeau ON : `grant_channel` n'accorde qu'après un verdict biométrique positif ; la boîte **nomme le canal**
+- [ ] **Fail-closed** : refus/échec de la cérémonie → grant refusé (jamais d'accord silencieux)
+- [ ] Plafond vérifié **avant** le prompt Touch ID (pas de prompt pour un hors-plafond)
+- [ ] Drapeau OFF → comportement d'élicitation actuel **inchangé**
+- [ ] `revoke_channel` et les lectures **non impactés**
+- [ ] Tests : contrat du wrapper (livré) + intégration `grant_channel` (drapeau ON/OFF, fail-closed) ; la biométrie reste un relevé humain (E2E)
+- [ ] ADR : hiérarchie de consentement + amendement ADR-0002 ; drapeau documenté au README
 
 ## Notes
 

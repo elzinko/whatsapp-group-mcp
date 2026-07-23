@@ -12,6 +12,7 @@
 | [0009](0009-verrou-exclusif-auth.md) | Verrou OS exclusif sur auth/ — garde-fou anti-collision entre process | feature | P2 | 🔴 todo | |
 | [0010](0010-installer-doctor-cli.md) | Installer / doctor en CLI — brancher le MCP sans se tromper (check node, chemin absolu) | feature | P2 | 🔴 todo | |
 | [0012](0012-adr-serveur-ne-configure-pas-le-client.md) | ADR — le serveur MCP reste read-only et ne configure jamais le client | chore | P2 | 🔴 todo | |
+| [0013](0013-garde-touchid-presence-grant.md) | Garde Touch ID (presence check) sur grant_channel — v1, portée de google-mcp | feature | P2 | 🔴 todo · ✅ ready | |
 | [0011](0011-outil-aide-mcp.md) | Aide déclenchée — outil (et prompt) « comment j'utilise ce MCP ? » | feature | P3 | 🔴 todo | |
 
 ## ⛔ Bloquées
@@ -32,9 +33,8 @@
 | # | Titre | Type | Prio |
 |---|---|---|---|
 | [0004](0004-profils-par-projet.md) | Profils par projet (.mcp.json → profil nommé, effectif = plafond ∩ profil) | feature | P2 |
-| [0013](0013-garde-touchid-presence-grant.md) | Garde Touch ID (presence check) sur grant_channel — v1, portée de google-mcp | feature | P2 |
 | [0007](0007-elicitation-signee-touch-id.md) | Élicitation signée — consentement par authentification physique (Touch ID / Secure Enclave) | feature | P3 |
 
 ---
 
-Compteurs : 13 fiches actives — 7 todo (0 ready) · 0 in-progress · 5 idea (dont 2 épics) · 1 blocked · 0 shipped.
+Compteurs : 13 fiches actives — 8 todo (1 ready) · 0 in-progress · 4 idea (dont 2 épics) · 1 blocked · 0 shipped.
