@@ -35,6 +35,9 @@ strong-auth-*.json
 # Note de handoff ezk-archive : éphémère personnel, jamais committé
 .claude/handoff.md
 
+# Scratch de sprint ezk-sprint : éphémère par-branche, jamais committé
+SPRINT.md
+
 # Secrets/variables pour act (CI en local) — jamais committés.
 # Aucun workflow n'en utilise aujourd'hui ; la règle est posée d'avance.
 .secrets

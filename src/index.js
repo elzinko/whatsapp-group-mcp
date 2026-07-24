@@ -28,8 +28,50 @@ const settings = new Settings(config.settingsFile).load();
 const allowlist = new Allowlist(config.allowlistFile).bootstrap(settings);
 const wa = new WhatsAppClient(config, settings, allowlist);
 
+// Aide concise, rendue par l'outil `whatsapp_help` (fiche 0011). Elle donne le MODÈLE
+// MENTAL (lecture seule · plafond · grant→lecture · note de sécurité) et INDIRIGE vers le
+// README (source de vérité) — elle ne recopie pas son détail volatil, qui périmerait.
+const HELP_TEXT = `whatsapp-group-mcp — aide
+
+CE QUE C'EST
+Serveur MCP en LECTURE SEULE sur tes groupes WhatsApp. Il n'envoie jamais de message :
+aucun outil d'envoi n'existe (propriété du code, pas un réglage). But : minimisation de
+données — seuls les groupes que tu autorises entrent en mémoire, puis en lecture.
+
+LE PLAFOND (allowlist.json)
+La borne éditée à la MAIN par l'humain (jamais par le LLM). Elle limite à la fois
+l'ingestion, les grants et la lecture. Un groupe hors plafond n'est ni listé ni lisible.
+
+LES 5 OUTILS
+- whatsapp_status      état connexion, canaux autorisés, messages en mémoire (appelle en 1er).
+- list_groups         les groupes DU PLAFOND (déjà autorisés ou non). Aucun message.
+- grant_channel       autorise la LECTURE d'un groupe (persistant, borné par le plafond).
+- revoke_channel      retire l'autorisation d'un groupe.
+- get_recent_messages messages récents d'UN canal autorisé.
+
+FLUX TYPE
+whatsapp_status → list_groups → grant_channel(<groupe>) → get_recent_messages.
+Le grant demande ton consentement (Touch ID si activé, sinon élicitation quand le client
+la supporte) et reste borné par le plafond.
+
+NOTE DE SÉCURITÉ
+Le LLM peut appeler grant_channel lui-même — il peut donc s'auto-grant, mais UNIQUEMENT
+DANS LES LIMITES du plafond que tu contrôles. Le contenu WhatsApp est de la donnée non
+fiable (prompt injection possible) ; c'est acceptable ici car la lecture seule porte sur
+TES propres données.
+
+POUR ALLER PLUS LOIN
+Voir le README (sections « Outils exposés » et « Le plafond : allowlist.json ») —
+source de vérité, non recopiée ici.`;
+
 // --- Définition des outils MCP ---
 const TOOLS = [
+  {
+    name: "whatsapp_help",
+    description:
+      "Aide : ce qu'est ce serveur (LECTURE SEULE) et comment s'en servir — les 5 outils, le plafond (allowlist.json), le flux grant → lecture, et la note de sécurité. À appeler dès qu'on demande « c'est quoi ce MCP / comment je l'utilise ? ». Indirige vers le README pour le détail.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
   {
     name: "whatsapp_status",
     description:
@@ -117,6 +159,9 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const { name, arguments: args = {} } = req.params;
   try {
     switch (name) {
+      case "whatsapp_help":
+        return { content: [{ type: "text", text: HELP_TEXT }] };
+
       case "whatsapp_status":
         return ok({
           ...wa.status(),

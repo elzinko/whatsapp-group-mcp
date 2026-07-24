@@ -11,7 +11,6 @@
 | [0003](0003-hygiene-locale-permissions-filevault.md) | Hygiène locale — permissions fichiers, FileVault, pas de dossier synchronisé | chore | P2 | 🔴 todo | |
 | [0009](0009-verrou-exclusif-auth.md) | Verrou OS exclusif sur auth/ — garde-fou anti-collision entre process | feature | P2 | 🔴 todo | |
 | [0012](0012-adr-serveur-ne-configure-pas-le-client.md) | ADR — le serveur MCP reste read-only et ne configure jamais le client | chore | P2 | 🔴 todo | |
-| [0011](0011-outil-aide-mcp.md) | Aide déclenchée — outil (et prompt) « comment j'utilise ce MCP ? » | feature | P3 | 🔴 todo | |
 
 ## ⛔ Bloquées
 
@@ -37,9 +36,10 @@
 
 | # | Titre | Type | Prio | Réf |
 |---|---|---|---|---|
+| [0011](done/0011-outil-aide-mcp.md) | Aide déclenchée — outil « comment j'utilise ce MCP ? » | feature | P3 | PR #9 |
 | [0013](done/0013-garde-touchid-presence-grant.md) | Garde Touch ID (presence check) sur grant_channel | feature | P2 | poussé `bf2df7f` |
 | [0010](done/0010-installer-doctor-cli.md) | Installer / doctor en CLI (check node, chemin absolu, config idempotente) | feature | P2 | `#8` |
 
 ---
 
-Compteurs : 11 fiches actives — 6 todo (0 ready) · 0 in-progress · 4 idea (dont 2 épics) · 1 blocked · 2 shipped (dans done/).
+Compteurs : 10 fiches actives — 5 todo (0 ready) · 0 in-progress · 4 idea (dont 2 épics) · 1 blocked · 3 shipped (dans done/).

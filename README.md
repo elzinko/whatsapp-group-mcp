@@ -217,6 +217,7 @@ variable d'environnement n'est nécessaire : le choix des canaux se fait en conv
 
 | Outil | Rôle |
 |---|---|
+| `whatsapp_help` | Aide déclenchée : ce que fait le serveur et comment s'en servir. Indirige vers ce README pour le détail. |
 | `whatsapp_status` | État de la connexion, canaux autorisés, messages en mémoire. |
 | `list_groups` | Les groupes **du plafond** (id, nom, déjà autorisé ou non) + le nombre de groupes masqués. Aucun message. |
 | `grant_channel` | Autorise **la lecture** d'un groupe, de façon persistante. |
