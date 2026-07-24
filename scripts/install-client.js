@@ -42,31 +42,32 @@ if (desktopRunning) {
   die("Claude Desktop tourne — quitte-le complètement (Cmd-Q), puis relance cette commande. Sinon l'app efface l'ajout.");
 }
 
-// 3. Config existante : REFUS si illisible/malformée (ne jamais clobber)
+// 3-4. Config existante : LUE UNE SEULE FOIS. Pas de `existsSync` puis lecture/copie
+// (ce check-puis-usage est une course TOCTOU — CodeQL js/file-system-race). Absente
+// (ENOENT) -> config neuve ; illisible ou JSON malformé -> REFUS (on ne clobber jamais
+// ce qu'on ne comprend pas). Le texte brut déjà lu sert de backup, sans re-lecture disque.
 const cfgPath = desktopConfigPath();
+let raw = null;
+try {
+  raw = fs.readFileSync(cfgPath, "utf8");
+} catch (e) {
+  if (e.code !== "ENOENT") die(`config Desktop illisible : ${e.message}`);
+  // ENOENT : pas encore de config -> on en créera une neuve.
+}
+
 let existing = {};
-if (fs.existsSync(cfgPath)) {
-  let raw;
-  try {
-    raw = fs.readFileSync(cfgPath, "utf8");
-  } catch (e) {
-    die(`config Desktop illisible : ${e.message}`);
-  }
+if (raw !== null) {
   try {
     existing = JSON.parse(raw);
   } catch {
     die(`config Desktop présente mais JSON malformé (${cfgPath}) — corrige-la à la main d'abord, je refuse de l'écraser.`);
   }
-}
-
-// 4. Backup avant écriture
-if (fs.existsSync(cfgPath)) {
   const bak = `${cfgPath}.bak`;
-  fs.copyFileSync(cfgPath, bak);
+  fs.writeFileSync(bak, raw); // backup depuis le contenu déjà lu (aucune re-lecture)
   console.log(`↳ backup : ${bak}`);
 }
 
-// 5. Fusion idempotente (préserve tous les autres serveurs et clés)
+// 5. Fusion idempotente (préserve tous les autres serveurs et clés) + écriture
 const merged = mergeMcpServer(existing, "whatsapp-group", {
   command: stable.path,
   args: [serverEntry],
