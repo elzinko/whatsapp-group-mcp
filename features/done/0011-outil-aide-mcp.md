@@ -5,9 +5,9 @@ type: feature
 priority: P3
 version:
 epic:
-status: todo
+status: shipped
 ready: 2026-07-24
-pr:
+pr: "#9"
 created: 2026-07-22
 ---
 
@@ -26,7 +26,7 @@ sur « qu'est-ce que ce MCP et comment je m'en sers » manque.
 ## Valeur
 
 Réduit la friction de (re)prise en main : la réponse « c'est quoi / comment je m'en sers »
-arrive **dans le client**, sans sortir chercher le README. Complète [0010](done/0010-installer-doctor-cli.md) :
+arrive **dans le client**, sans sortir chercher le README. Complète [0010](0010-installer-doctor-cli.md) :
 `doctor` répond « mon install est-elle saine ? » (diagnostic, CLI) ; `help` répond
 « qu'est-ce que ça fait et comment je m'en sers ? » (usage, dans la conversation) — deux
 questions distinctes, deux points d'entrée.
@@ -79,7 +79,7 @@ slash-command là où le client la supporte.
   ne bougent pas) ; le détail (flags, exemples) reste dans le README. Le LLM voit déjà la
   description de chaque outil via `ListTools` — `whatsapp_help` donne le **modèle mental**
   (lecture seule · plafond · grant→lecture · note de sécurité) + le pointeur, pas une copie.
-- Complète [0010](done/0010-installer-doctor-cli.md) : `doctor` (diagnostic, CLI) et `help`
+- Complète [0010](0010-installer-doctor-cli.md) : `doctor` (diagnostic, CLI) et `help`
   (usage, outil MCP) répondent à deux questions différentes.
 
 ## Definition of Ready
