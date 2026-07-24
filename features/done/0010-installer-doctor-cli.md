@@ -5,9 +5,9 @@ type: feature
 priority: P2
 version:
 epic:
-status: todo
+status: shipped
 ready: 2026-07-22
-pr:
+pr: "merge local 8b99874 (non poussé)"
 created: 2026-07-22
 ---
 
@@ -44,12 +44,13 @@ google-mcp-multi-account, `bin/gwsa`).
 
 ## Critères d'acceptation
 
-- [ ] `doctor` diagnostique sans rien modifier ; il signale node manquant / trop vieux
-- [ ] `install` écrit un `command` = **chemin absolu** vers node (pas `"node"`)
-- [ ] `install` **préserve** les serveurs déjà présents (idempotent, relançable)
-- [ ] `install` refuse (ou avertit fortement) si Desktop est ouvert
-- [ ] Aucun secret, aucune donnée privée touchée ; le serveur MCP lui-même reste read-only
-- [ ] Testé : machine sans node → warning clair ; config existante → pas d'écrasement
+- [x] `doctor` diagnostique sans rien modifier ; il signale node manquant / trop vieux (validé en réel)
+- [x] `install` écrit un `command` = **chemin absolu** vers node (`/opt/homebrew/bin/node`)
+- [x] `install` **préserve** les serveurs déjà présents — validé E2E contre la vraie config
+      (shopify + render + google-multi-account intacts, whatsapp-group ajouté, backup créé)
+- [x] `install` refuse si Desktop est ouvert (garde-fou `pgrep`)
+- [x] Aucun secret, aucune donnée privée touchée ; le serveur MCP lui-même reste read-only
+- [x] Testé : 21 cas sur les helpers purs (dont `mergeMcpServer` non-destructif) + E2E réel
 
 ## Notes
 
