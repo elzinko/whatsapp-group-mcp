@@ -42,4 +42,4 @@
 
 ---
 
-Compteurs : 11 fiches actives — 6 todo (0 ready) · 0 in-progress · 4 idea (dont 2 épics) · 1 blocked · 2 shipped (dans done/).
+Compteurs : 11 fiches actives — 6 todo (1 ready) · 0 in-progress · 4 idea (dont 2 épics) · 1 blocked · 2 shipped (dans done/).
