@@ -38,7 +38,7 @@
 | # | Titre | Type | Prio | Réf |
 |---|---|---|---|---|
 | [0013](done/0013-garde-touchid-presence-grant.md) | Garde Touch ID (presence check) sur grant_channel | feature | P2 | poussé `bf2df7f` |
-| [0010](done/0010-installer-doctor-cli.md) | Installer / doctor en CLI (check node, chemin absolu, config idempotente) | feature | P2 | merge local `8b99874` |
+| [0010](done/0010-installer-doctor-cli.md) | Installer / doctor en CLI (check node, chemin absolu, config idempotente) | feature | P2 | `#8` |
 
 ---
 
