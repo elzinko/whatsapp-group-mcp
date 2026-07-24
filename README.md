@@ -183,6 +183,13 @@ git et ne doit pas être partagé. Révoquer un canal ne supprime pas son archiv
 
 ## Brancher à Claude Desktop / Cowork
 
+> 🩺 **Le plus simple (macOS) :** `npm run doctor` diagnostique le branchement (node, chemin
+> stable, clients, appairage) sans rien modifier ; `npm run install:client` **écrit** le bloc
+> Desktop pour toi — chemin node absolu résolu automatiquement, backup + fusion qui préserve
+> tes autres serveurs, et refus si Desktop tourne (sinon l'app efface l'ajout). Ces commandes
+> sont lancées **par toi** (le serveur ne configure jamais un client — [ADR-0003](docs/adr/0003-consentement-par-presence-touch-id.md)).
+> Le bloc manuel ci-dessous reste la référence.
+
 Ajoute ce bloc dans `claude_desktop_config.json` :
 
 - macOS : `~/Library/Application Support/Claude/claude_desktop_config.json`

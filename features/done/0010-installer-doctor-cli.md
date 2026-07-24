@@ -5,9 +5,9 @@ type: feature
 priority: P2
 version:
 epic:
-status: todo
-ready:
-pr:
+status: shipped
+ready: 2026-07-22
+pr: "merge local 8b99874 (non poussé)"
 created: 2026-07-22
 ---
 
@@ -44,15 +44,25 @@ google-mcp-multi-account, `bin/gwsa`).
 
 ## Critères d'acceptation
 
-- [ ] `doctor` diagnostique sans rien modifier ; il signale node manquant / trop vieux
-- [ ] `install` écrit un `command` = **chemin absolu** vers node (pas `"node"`)
-- [ ] `install` **préserve** les serveurs déjà présents (idempotent, relançable)
-- [ ] `install` refuse (ou avertit fortement) si Desktop est ouvert
-- [ ] Aucun secret, aucune donnée privée touchée ; le serveur MCP lui-même reste read-only
-- [ ] Testé : machine sans node → warning clair ; config existante → pas d'écrasement
+- [x] `doctor` diagnostique sans rien modifier ; il signale node manquant / trop vieux (validé en réel)
+- [x] `install` écrit un `command` = **chemin absolu** vers node (`/opt/homebrew/bin/node`)
+- [x] `install` **préserve** les serveurs déjà présents — validé E2E contre la vraie config
+      (shopify + render + google-multi-account intacts, whatsapp-group ajouté, backup créé)
+- [x] `install` refuse si Desktop est ouvert (garde-fou `pgrep`)
+- [x] Aucun secret, aucune donnée privée touchée ; le serveur MCP lui-même reste read-only
+- [x] Testé : 21 cas sur les helpers purs (dont `mergeMcpServer` non-destructif) + E2E réel
 
 ## Notes
 
+- **Design retenu (groom 2026-07-22)** : scripts Node sous `scripts/` (comme `stop.js`,
+  `list-groups.js`), exposés en `npm run doctor` / `npm run install:client` — ESM, zéro dép.
+  `doctor` **lit seulement**. `install` cible **Desktop** (écrit
+  `~/Library/Application Support/Claude/claude_desktop_config.json` : **backup d'abord**,
+  fusion idempotente préservant les autres serveurs, **refuse si Desktop tourne**, JSON
+  malformé → refus sûr) ; pour **Code**, imprime la commande `claude mcp add` (ne pas écrire
+  `~/.claude.json` à la main). Node stable résolu par ordre : `/opt/homebrew/bin/node` →
+  `/usr/local/bin/node` → `/usr/bin/node` → `process.execPath` (warning si seulement nvm).
+  macOS d'abord.
 - Absorbe proprement l'envie « que ça se configure tout seul » (Q du 2026-07-22) **sans**
   donner au serveur un pouvoir d'écriture sur la config client — la frontière est tenue
   par [0012](0012-adr-serveur-ne-configure-pas-le-client.md).
