@@ -19,11 +19,13 @@ véreux ou compromis pourrait fabriquer une réponse sans rien afficher. Accepta
 local avec les clients officiels ; insuffisant le jour où le consentement engage plus
 (retour de `send`) ou vient de surfaces non fiables (démon en réseau, app mobile).
 
-**Preuve terrain (2026-07-19)** : une v1 naïve du même besoin a été livrée dans le projet
-`google-mcp-multi-account` (`gwsa strongauth on` + `scripts/touchid.swift`). Elle fait un
-simple **presence check** — `LAContext.evaluatePolicy(.deviceOwnerAuthentication)`, exit 0/1 —
-et la garantie s'arrête au code appelant : le processus qui invoque le helper reste juge de
-ce qu'il fait du verdict. C'est exactement le cran que cette fiche dépasse.
+**Preuve terrain** : le projet voisin `google-mcp-multi-account` a livré les deux crans —
+v1 (2026-07-19, `scripts/touchid.swift` + presence check) et **v2 signé** (2026-07-28,
+commit `f642d8b` sur `feat/v2-local-deploy`) — avant cette fiche. La v1 fait un simple
+**presence check** (`LAContext.evaluatePolicy`, exit 0/1) : le processus appelant reste
+juge du verdict. La v2 implémente **cette fiche** côté `gwsa` (payload canonique, signature
+Secure Enclave, reçus) — voir § Référence d'implémentation. Ici, le v1 est déjà porté
+(fiche [0013](done/0013-garde-touchid-presence-grant.md)) ; le v2 signé reste à adapter.
 
 > **Ce même presence check, porté ici, est la fiche [0013](0013-garde-touchid-presence-grant.md)
 > (le « v1 »).** Cette fiche-ci est le « v2 signé ». Ordre pressenti : éprouver d'abord le
@@ -101,9 +103,9 @@ Quatre points structurels — c'est là que ce design se gagne ou se perd :
    `userPresence` (cf. décision 4) ; (b) helper compilé au premier lancement via `swiftc`
    vs binaire commité (déjà noté ci-dessous) ; (c) emplacement de la clé publique + format
    du journal de reçus. Puis `ezk-backlog ready 0007`.
-2. **Spike helper signé** (½ j, isolable) : `enroll` (création clé enclave + export clé
-   publique) et `sign <payload-json>` (prompt + signature). Vérifier à la main qu'une
-   signature obtenue pour la question A ne valide pas la question B.
+2. **Spike helper signé** — **fait ailleurs** (google-mcp `f642d8b`, voir § Référence
+   d'implémentation). Reste : porter `elicitation-sign.swift` + valider enroll/sign en local
+   whatsapp, puis vérifier à la main qu'une signature pour la question A ne valide pas B.
 3. **Protocole Node** : génération du défi (nonce + hachage canonique — figer la
    sérialisation, c'est ce qui est signé), appel du helper, vérification avec la clé
    publique enrôlée, **fail closed** sur tout échec (helper absent, timeout, signature
@@ -153,21 +155,54 @@ justifie, est **orthogonal et cosmétique** : ça peut attendre.
 
 ### Brique partagée (piste, à arbitrer)
 
-Deux projets veulent désormais cette brique : **whatsapp-group-mcp** (cette fiche, version
-signée) et **google-mcp-multi-account** (`gwsa strongauth`, la v1 presence-check). Le helper
-Swift + le protocole défi/vérification mériteraient d'être extraits en **petite brique
-partagée** (un binaire + une lib de vérification Node/bash) : enrôlement commun, **un seul
-doigt pour tout l'écosystème**, un seul endroit où corriger le modèle de menace. À arbitrer
-au grooming — attention à ne pas sur-abstraire avant d'avoir **deux usages réels** qui
-tournent.
+Deux projets ont désormais cette brique : **whatsapp-group-mcp** (cette fiche, v2 signé —
+pas encore implémenté ici) et **google-mcp-multi-account** (v2 livré côté `gwsa`, v1
+presence-check). Le helper Swift + le protocole défi/vérification mériteraient d'être
+extraits en **petite brique partagée** (un binaire + une lib de vérification Node/Python) :
+enrôlement commun, **un seul doigt pour tout l'écosystème**, un seul endroit où corriger le
+modèle de menace. Décision actuelle côté google-mcp : **copie locale**, extraction différée
+(ADR-0005) — à reprendre au grooming whatsapp.
 
-### Référence externe — l'existant à reprendre
+## Référence d'implémentation
 
-- `google-mcp-multi-account` : `scripts/touchid.swift` (presence check, ~25 lignes,
-  `.deviceOwnerAuthentication`), `gwsa strongauth on|off|status`, appelé par
-  `require_strong_auth()` avant `unlock` et `grant`. C'est la v1 à faire monter en gamme :
-  même dépendance (LocalAuthentication), mêmes contraintes de compilation (`swiftc`, pas
-  de Xcode requis), mais **sans** signature ni liaison à la question.
-- **Dépendance externe** : ce repo est hors du monorepo — si la brique partagée est retenue,
-  poser une ligne datée « dépendance google-mcp-multi-account — accès constaté le AAAA-MM-JJ »
-  avant de passer le gate `ready` (exigence DoR).
+**État constaté le 2026-07-28** : le v2 signé de cette fiche est **livré** dans
+`google-mcp-multi-account` sans attendre l'implémentation whatsapp — le transport WhatsApp
+reste bloqué côté ce repo, mais la brique cryptographique est prête à porter/adapter.
+
+| Élément | Chemin (repo `google-mcp-multi-account`) |
+|---|---|
+| Point d'entrée | `feat/v2-local-deploy` @ `f642d8b` |
+| Helper Swift (enroll + sign) | `scripts/elicitation-sign.swift` |
+| Protocole (payload, nonce, reçus) | `gateway/elicitation.py` |
+| CLI gate / enroll | `scripts/elicitation-cli.py` |
+| Intégration humaine | `bin/gwsa` → `gwsa elicitation enroll\|status`, `require_signed_elicitation()` |
+| ADR (modèle de menace, fail closed) | `docs/adr/ADR-0005-elicitation-signee-v2.md` |
+| Fiche miroir | `features/0001-elicitation-signee-strongauth-v2.md` |
+| v1 presence check (déjà porté ici en 0013) | `scripts/touchid.swift`, `gwsa strongauth` |
+
+### Réutilisable tel quel (ou quasi)
+
+- **Un seul payload canonique** : le helper dérive le prompt Touch ID *et* signe le JSON
+  (SHA-256 + ECDSA P-256 Secure Enclave, `biometryCurrentSet`).
+- **Anti-rejeu** : nonce + TTL ; journal `receipts.jsonl` + `nonces.json`.
+- **Mode mock CI** : `GWSA_ELICITATION_MOCK=1` + clé HMAC (même mécanique de tests sans
+  doigt — modèle pour `test/elicitation.js` ici).
+- **Compilation** : `swiftc` au runtime, pas de Xcode requis (même contrainte que 0013).
+
+### À adapter pour whatsapp-group-mcp
+
+| Aspect | google-mcp (`gwsa`) | whatsapp (cible) |
+|---|---|---|
+| Actions signées | `unlock`, `grant`, `add_account`, `session_*`, `project_sign` | `grant_channel` (nom du canal), éventuellement `send` futur |
+| Couche de vérification | Python (`gateway/elicitation.py`) | Node (`src/…`) — reprendre la logique, pas le langage |
+| Emplacement clé publique | `~/.config/gws-accounts/.elicitation/` | Hors repo, hors répertoire éditable par l'agent (cf. décision 3) |
+| Déclencheur | CLI `gwsa` avant unlock/grant | Serveur MCP stdio sur `grant_channel` (faisabilité GUI : prouvée en 0013) |
+| Élicitation MCP | Informative quand strongauth actif | Idem : le doigt signé *est* le consentement |
+
+L'implémentation google-mcp **ne remplace pas** le grooming de cette fiche (décisions 1–4,
+emplacement de la clé, repli biométrie) mais **évite de réinventer** le spike helper et le
+protocole — point de départ concret pour l'étape 2 du § Reste à faire.
+
+**Dépendance externe** (exigence DoR) : repo hors monorepo — avant le gate `ready`, poser
+une ligne datée « dépendance google-mcp-multi-account — accès constaté le 2026-07-28 »
+(référence ci-dessus).
