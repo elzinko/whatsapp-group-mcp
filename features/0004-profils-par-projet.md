@@ -4,7 +4,7 @@ title: Profils par projet (.mcp.json → profil nommé, effectif = plafond ∩ p
 type: feature
 priority: P2
 version:
-epic:
+epic: "20260902223310355"
 status: idea
 ready:
 pr:
@@ -41,3 +41,13 @@ Phase 1.5 bis de l'ADR-0002 :
 Attendre un besoin multi-projets réel (aujourd'hui un seul projet consomme le MCP).
 Limite connue : deux projets à profils ouverts en même temps = toujours la contrainte
 « un seul process par dossier auth » — c'est la fiche 0005 qui la lève.
+
+### Rattachement à l'épic « accès par session » (2026-09-03)
+
+Fiche rattachée à l'épic
+[20260902223310355](20260902223310355_acces-whatsapp-par-session.md). Le profil est la
+couche **statique** (déclarée par le lanceur, par projet) ; la fiche
+[20260902223310499](20260902223310499_droits-par-session-jeton-porte.md) ajoute la couche
+**par conversation** (jeton porté). Périmètre effectif = plafond ∩ profil ∩ session.
+Limite constatée qui justifie les deux couches : sous Desktop/Cowork, toutes les
+conversations partagent une connexion — un profil par process ne les distingue pas.

@@ -4,7 +4,7 @@ title: Valider l'ADR-0002 en conditions réelles (plafond, élicitation, lecture
 type: chore
 priority: P0
 version:
-epic:
+epic: "20260902223310355"
 status: todo
 ready:
 pr:
@@ -64,3 +64,17 @@ Résultats de mesure :
   capability). Ce qui reste non-automatisable PAR CONSTRUCTION : prouver qu'un humain
   a répondu — un test qui répond au formulaire est un robot.
 - Restant : relevé `grantConsent` sur Desktop/Cowork uniquement.
+
+### Rattachement à l'épic « accès par session » (2026-09-03)
+
+Fiche rattachée à l'épic
+[20260902223310355](20260902223310355_acces-whatsapp-par-session.md) : le relevé
+Desktop/Cowork en est la **première étape** (hypothèse la plus risquée, zéro code).
+Constats du jour, à recouper au relevé :
+- `whatsapp-group` est **absent** de la config Desktop (`npm run doctor`) ; il figurait dans
+  les sauvegardes de config du 19 au 28 juillet. Cowork lit cette config et annonce ses
+  serveurs locaux par un pont (`localMcpBridge` — google-multi-account y apparaît avec
+  17 outils). Rebrancher : `npm run install:client`, **Desktop quitté**, serveurs Code
+  arrêtés (`npm run stop`).
+- Point à observer en plus des Tests A et C : la boîte **Touch ID** s'affiche-t-elle quand
+  le serveur est lancé par Desktop (réserve de l'ADR-0003) ?
