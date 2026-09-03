@@ -1,16 +1,18 @@
 # Backlog features & bugs — whatsapp-group-mcp
 
 > Index **régénéré** depuis le front-matter des fiches (`ezk-backlog regen`) — ne pas éditer à la main.
+> Ids : les fiches historiques gardent 4 chiffres ; les nouvelles portent un horodatage (17 chiffres), règle du skill contre les collisions entre sessions.
 
 ## Actionnable (P0 → P3)
 
-| # | Titre | Type | Prio | Statut | PR |
-|---|---|---|---|---|---|
-| [0001](0001-valider-adr-0002-conditions-reelles.md) | Valider l'ADR-0002 en conditions réelles (plafond, élicitation, lecture E2E) | chore | P0 | 🔴 todo | |
-| [0008](0008-repli-sans-elicitation-fail-open.md) | Repli sans élicitation — trancher fail-open ou fail-closed (et le documenter) | feature | P1 | 🔴 todo | |
-| [0003](0003-hygiene-locale-permissions-filevault.md) | Hygiène locale — permissions fichiers, FileVault, pas de dossier synchronisé | chore | P2 | 🔴 todo | |
-| [0009](0009-verrou-exclusif-auth.md) | Verrou OS exclusif sur auth/ — garde-fou anti-collision entre process | feature | P2 | 🔴 todo | |
-| [0012](0012-adr-serveur-ne-configure-pas-le-client.md) | ADR — le serveur MCP reste read-only et ne configure jamais le client | chore | P2 | 🔴 todo | |
+| # | Titre | Type | Prio | Épic | Statut | PR |
+|---|---|---|---|---|---|---|
+| [0001](0001-valider-adr-0002-conditions-reelles.md) | Valider l'ADR-0002 en conditions réelles (plafond, élicitation, lecture E2E) | chore | P0 | 20260902223310355 | 🔴 todo | |
+| [0008](0008-repli-sans-elicitation-fail-open.md) | Repli sans élicitation — trancher fail-open ou fail-closed (et le documenter) | feature | P1 | | 🔴 todo | |
+| [20260902223310499](20260902223310499_droits-par-session-jeton-porte.md) | Droits par session — jeton porté dans chaque appel, ouvert par Touch ID, périmètre ⊆ grants, TTL et révocation | feature | P1 | 20260902223310355 | 🔴 todo | |
+| [0003](0003-hygiene-locale-permissions-filevault.md) | Hygiène locale — permissions fichiers, FileVault, pas de dossier synchronisé | chore | P2 | | 🔴 todo | |
+| [0009](0009-verrou-exclusif-auth.md) | Verrou OS exclusif sur auth/ — garde-fou anti-collision entre process | feature | P2 | | 🔴 todo | |
+| [0012](0012-adr-serveur-ne-configure-pas-le-client.md) | ADR — le serveur MCP reste read-only et ne configure jamais le client | chore | P2 | | 🔴 todo | |
 
 ## ⛔ Bloquées
 
@@ -22,24 +24,26 @@
 
 | # | Titre | Prio | Statut |
 |---|---|---|---|
+| [20260902223310355](20260902223310355_acces-whatsapp-par-session.md) | Accès WhatsApp par session — Cowork, Desktop et Code, chacun son périmètre (plafond ∩ profil ∩ session) | P1 | 🔴 todo |
 | [0005](0005-demon-frontends-mcp.md) | Démon unique + frontends MCP minces (phase 2 — multi-clients simultanés) | P3 | 💡 idea |
 | [0006](0006-app-mobile-tokens.md) | Accès réseau pour l'app mobile — tokens à capabilities, TLS/Tailscale (phase 3) | P3 | 💡 idea |
 
 ## 💡 Idées (non groomées)
 
-| # | Titre | Type | Prio |
-|---|---|---|---|
-| [0004](0004-profils-par-projet.md) | Profils par projet (.mcp.json → profil nommé, effectif = plafond ∩ profil) | feature | P2 |
-| [0007](0007-elicitation-signee-touch-id.md) | Élicitation signée — consentement par authentification physique (Touch ID / Secure Enclave) | feature | P3 |
+| # | Titre | Type | Prio | Épic |
+|---|---|---|---|---|
+| [0004](0004-profils-par-projet.md) | Profils par projet (.mcp.json → profil nommé, effectif = plafond ∩ profil) | feature | P2 | 20260902223310355 |
+| [0007](0007-elicitation-signee-touch-id.md) | Élicitation signée — consentement par authentification physique (Touch ID / Secure Enclave) | feature | P3 | |
+| [20260902223310640](20260902223310640_emballage-plugin-cowork-marketplace.md) | Emballage plugin Claude (marketplace elzinko) — skills + .mcp.json pour Cowork et Code | feature | P3 | 20260902223310355 |
 
 ## ✅ Livrées
 
 | # | Titre | Type | Prio | Réf |
 |---|---|---|---|---|
 | [0011](done/0011-outil-aide-mcp.md) | Aide déclenchée — outil « comment j'utilise ce MCP ? » | feature | P3 | PR #9 |
-| [0013](done/0013-garde-touchid-presence-grant.md) | Garde Touch ID (presence check) sur grant_channel | feature | P2 | poussé `bf2df7f` |
+| [0013](done/0013-garde-touchid-presence-grant.md) | Garde Touch ID (presence check) sur grant_channel | feature | P2 | `e096a7a` (poussé sur main, sans PR) |
 | [0010](done/0010-installer-doctor-cli.md) | Installer / doctor en CLI (check node, chemin absolu, config idempotente) | feature | P2 | `#8` |
 
 ---
 
-Compteurs : 10 fiches actives — 5 todo (0 ready) · 0 in-progress · 4 idea (dont 2 épics) · 1 blocked · 3 shipped (dans done/).
+Compteurs : 13 fiches actives — 7 todo (0 ready) · 0 in-progress · 5 idea (dont 2 épics) · 1 blocked · 3 shipped (dans done/).

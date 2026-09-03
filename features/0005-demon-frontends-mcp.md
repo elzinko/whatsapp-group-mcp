@@ -73,3 +73,14 @@ paired / logged-out / needs-QR). Leur broker est sans état, il n'y a rien à co
 **Si un scope par client devient un besoin** (« ce Desktop lit #famille, ce Code non ») :
 il faut un token **par client**, dont le périmètre est vérifié côté broker — strictement
 plus que ce que fait le voisin, à concevoir et non à copier.
+
+### Prérequis de l'épic « accès par session » (2026-09-03)
+
+Épic **frère** (pas parent/enfant : deux niveaux max) de
+[20260902223310355](20260902223310355_acces-whatsapp-par-session.md), qui en fait son
+**prérequis** pour le multi-clients simultanés (Cowork + N sessions Code). Constat du
+2026-09-03 : **8 serveurs** `src/index.js` tournaient en parallèle sur le poste, un seul
+répondait — le besoin « multi-simultané réel » posé en condition ci-dessus est désormais
+constaté. Le registre de sessions (fiche
+[20260902223310499](20260902223310499_droits-par-session-jeton-porte.md)) est conçu pour
+migrer tel quel dans le démon.
