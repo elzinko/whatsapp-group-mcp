@@ -13,6 +13,7 @@
 | [0003](0003-hygiene-locale-permissions-filevault.md) | Hygiène locale — permissions fichiers, FileVault, pas de dossier synchronisé | chore | P2 | | 🔴 todo | |
 | [0009](0009-verrou-exclusif-auth.md) | Verrou OS exclusif sur auth/ — garde-fou anti-collision entre process | feature | P2 | | 🔴 todo | |
 | [0012](0012-adr-serveur-ne-configure-pas-le-client.md) | ADR — le serveur MCP reste read-only et ne configure jamais le client | chore | P2 | | 🔴 todo | |
+| [20260903085814506](20260903085814506_exposer-id-message-pour-ingestion.md) | Exposer l'id de message (et le JID canal) dans get_recent_messages pour une ingestion idempotente | feature | P2 | | 🔴 todo | |
 
 ## ⛔ Bloquées
 
@@ -46,4 +47,4 @@
 
 ---
 
-Compteurs : 13 fiches actives — 7 todo (0 ready) · 0 in-progress · 5 idea (dont 2 épics) · 1 blocked · 3 shipped (dans done/).
+Compteurs : 14 fiches actives — 8 todo (0 ready) · 0 in-progress · 5 idea (dont 2 épics) · 1 blocked · 3 shipped (dans done/).
