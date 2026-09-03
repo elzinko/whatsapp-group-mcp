@@ -1,6 +1,7 @@
 # Backlog features & bugs — whatsapp-group-mcp
 
 > Index **régénéré** depuis le front-matter des fiches (`ezk-backlog regen`) — ne pas éditer à la main.
+> Ids : les fiches historiques gardent 4 chiffres ; les nouvelles portent un horodatage (17 chiffres), règle du skill contre les collisions entre sessions.
 
 ## Actionnable (P0 → P3)
 
@@ -11,6 +12,7 @@
 | [0003](0003-hygiene-locale-permissions-filevault.md) | Hygiène locale — permissions fichiers, FileVault, pas de dossier synchronisé | chore | P2 | 🔴 todo | |
 | [0009](0009-verrou-exclusif-auth.md) | Verrou OS exclusif sur auth/ — garde-fou anti-collision entre process | feature | P2 | 🔴 todo | |
 | [0012](0012-adr-serveur-ne-configure-pas-le-client.md) | ADR — le serveur MCP reste read-only et ne configure jamais le client | chore | P2 | 🔴 todo | |
+| [20260903085814506](20260903085814506_exposer-id-message-pour-ingestion.md) | Exposer l'id de message (et le JID canal) dans get_recent_messages pour une ingestion idempotente | feature | P2 | 🔴 todo | |
 
 ## ⛔ Bloquées
 
@@ -42,4 +44,4 @@
 
 ---
 
-Compteurs : 10 fiches actives — 5 todo (0 ready) · 0 in-progress · 4 idea (dont 2 épics) · 1 blocked · 3 shipped (dans done/).
+Compteurs : 11 fiches actives — 6 todo (0 ready) · 0 in-progress · 4 idea (dont 2 épics) · 1 blocked · 3 shipped (dans done/).

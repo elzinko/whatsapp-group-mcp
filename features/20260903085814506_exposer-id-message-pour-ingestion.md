@@ -1,5 +1,5 @@
 ---
-id: 0013
+id: "20260903085814506"
 title: Exposer l'id de message (et le JID canal) dans get_recent_messages pour une ingestion idempotente
 type: feature
 priority: P2
