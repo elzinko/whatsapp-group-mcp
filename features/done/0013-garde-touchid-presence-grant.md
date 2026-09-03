@@ -7,7 +7,7 @@ version:
 epic:
 status: shipped
 ready: 2026-07-22
-pr: "merge local e096a7a (non poussé)"
+pr: "e096a7a (poussé sur main, sans PR)"
 created: 2026-07-22
 ---
 
