@@ -268,6 +268,9 @@ npm run test:mcp  # couche MCP seule, sans appairage
 - [ADR-0001 — Modèle d'accès aux canaux](docs/adr/0001-modele-d-acces-aux-canaux.md) :
   pourquoi les autorisations plutôt qu'un groupe figé, pourquoi la lecture seule, et le
   contrat à respecter si l'écriture revient un jour.
+- [ADR-0005 — Le serveur ne configure jamais le client](docs/adr/0005-le-serveur-ne-configure-pas-le-client.md) :
+  pourquoi aucun outil MCP n'écrit la config d'un client (Desktop/Code) — la config passe par
+  un installer humain, pas par le LLM (frontière read-only, ADR-0001).
 
 ## Licence
 
