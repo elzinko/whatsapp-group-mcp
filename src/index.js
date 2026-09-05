@@ -20,7 +20,7 @@ import { Allowlist } from "./allowlist.js";
 import { buildConfirmGrant, buildGrantConsent } from "./consent.js";
 import { readStrongAuthEnabled } from "./strongauth.js";
 import { checkPresence } from "./touchid.js";
-import { WhatsAppClient, log } from "./whatsapp.js";
+import { WhatsAppClient, log, toRecentMessage } from "./whatsapp.js";
 
 const settings = new Settings(config.settingsFile).load();
 // Le plafond (ADR-0002). Au tout premier démarrage, il est généré depuis les grants
@@ -205,13 +205,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
             messages.length === 0
               ? "Aucun message en mémoire pour ce canal. Le tampon se remplit avec l'historique reçu à la connexion et les nouveaux messages."
               : undefined,
-          messages: messages.map((m) => ({
-            from: m.pushName || m.sender,
-            sender: m.sender,
-            fromMe: m.fromMe,
-            text: m.text,
-            at: new Date((m.timestamp || 0) * 1000).toISOString(),
-          })),
+          messages: messages.map(toRecentMessage),
         });
       }
 

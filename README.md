@@ -222,10 +222,14 @@ variable d'environnement n'est nécessaire : le choix des canaux se fait en conv
 | `list_groups` | Les groupes **du plafond** (id, nom, déjà autorisé ou non) + le nombre de groupes masqués. Aucun message. |
 | `grant_channel` | Autorise **la lecture** d'un groupe, de façon persistante. |
 | `revoke_channel` | Retire l'autorisation d'un groupe. |
-| `get_recent_messages` | Messages récents d'**un** canal autorisé (`channel`, `limit`). |
+| `get_recent_messages` | Messages récents d'**un** canal autorisé (`channel`, `limit`). Chaque message renvoie `id`, `from`, `sender`, `fromMe`, `text`, `at`. |
 
 Il n'y a **pas** d'outil d'envoi. Pour analyser plusieurs canaux, le LLM appelle
 `get_recent_messages` une fois par canal.
+
+Le champ `id` est l'identifiant WhatsApp natif du message. Il est **stable**, donc un
+consommateur qui rejoue la lecture (ingestion) peut dédoublonner dessus sans hachage
+maison. C'est un id technique, pas du contenu : aucune donnée sensible en plus.
 
 ## Configuration (`.env`)
 

@@ -56,6 +56,21 @@ function toRecord(waMessage) {
   };
 }
 
+// Projette un record interne vers le message renvoyé par get_recent_messages (surface MCP).
+// `id` (l'identifiant WhatsApp natif, key.id) est exposé pour une ingestion IDEMPOTENTE côté
+// consommateur (fiche 20260903085814506) : sans identifiant stable, un rejeu duplique les
+// messages. Aucune donnée sensible en plus — c'est un id technique, pas du contenu.
+export function toRecentMessage(m) {
+  return {
+    id: m.id,
+    from: m.pushName || m.sender,
+    sender: m.sender,
+    fromMe: m.fromMe,
+    text: m.text,
+    at: new Date((m.timestamp || 0) * 1000).toISOString(),
+  };
+}
+
 function normalize(s) {
   return String(s || "").trim().toLowerCase();
 }
