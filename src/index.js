@@ -315,7 +315,10 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         if (denied.length > 0) {
           return fail(
             `Hors grants ∩ plafond, refusé avant toute demande de consentement : ` +
-              `${denied.map((jid) => `« ${subjectFor(jid)} »`).join(", ")}. ` +
+              // Ne nomme un canal refusé que s'il est DÉJÀ granté (l'humain le connaît). Sinon,
+              // n'expose que le JID : sortir le nom d'un groupe hors plafond via knownGroups
+              // fuiterait le graphe social que list_groups masque volontairement (revue 2026-09-05).
+              `${denied.map((jid) => (wa.settings.has(jid) ? `« ${subjectFor(jid)} »` : jid)).join(", ")}. ` +
               `Utilise 'grant_channel' (le canal doit aussi être dans le plafond, édité à la main) d'abord.`
           );
         }
