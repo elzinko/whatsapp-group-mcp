@@ -15,7 +15,8 @@
     "list-groups": "node scripts/list-groups.js",
     "doctor": "node scripts/doctor.js",
     "install:client": "node scripts/install-client.js",
-    "test": "node test/reconnect-plan.js && node test/store-persistence.js && node test/grants.js && node test/allowlist.js && node test/elicitation.js && node test/touchid.js && node test/strongauth.js && node test/consent-strongauth.js && node test/setup.js && node test/mcp-smoke.js && node test/help.js",
+    "sessions": "node scripts/sessions.js",
+    "test": "node test/reconnect-plan.js && node test/store-persistence.js && node test/grants.js && node test/allowlist.js && node test/elicitation.js && node test/touchid.js && node test/strongauth.js && node test/consent-strongauth.js && node test/setup.js && node test/sessions.js && node test/mcp-smoke.js && node test/help.js",
     "test:setup": "node test/setup.js",
     "test:allowlist": "node test/allowlist.js",
     "test:elicitation": "node test/elicitation.js",
@@ -24,6 +25,7 @@
     "test:consent-strongauth": "node test/consent-strongauth.js",
     "test:store": "node test/store-persistence.js",
     "test:grants": "node test/grants.js",
+    "test:sessions": "node test/sessions.js",
     "test:mcp": "node test/mcp-smoke.js",
     "test:help": "node test/help.js",
     "test:reconnect": "node test/reconnect-plan.js"

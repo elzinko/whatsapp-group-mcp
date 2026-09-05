@@ -70,15 +70,22 @@ try {
   check("status.readOnly === true", status.readOnly === true);
   check("aucun canal autorisé au départ", Array.isArray(status.grantedChannels) && status.grantedChannels.length === 0);
 
-  // Sans canal autorisé, la lecture échoue proprement et explique quoi faire.
+  // Rupture assumée (fiche 20260902223310499) : get_recent_messages EXIGE désormais
+  // une session ('session_open'), même quand un canal est autorisé. Sans jeton, le
+  // refus guide vers 'session_open' plutôt que vers 'grant_channel'. Voir
+  // test/sessions.js pour le reste du cycle de vie des sessions.
   const recentRes = await client.callTool({
     name: "get_recent_messages",
     arguments: { limit: 5 },
   });
   check(
-    "get_recent_messages sans grant -> erreur explicite",
-    recentRes.isError === true && /Aucun canal autorisé/.test(recentRes.content?.[0]?.text || "")
+    "get_recent_messages sans session -> erreur explicite guidant vers session_open",
+    recentRes.isError === true && /session_open/.test(recentRes.content?.[0]?.text || "")
   );
+
+  // Nouveaux outils de la fiche 20260902223310499, présents dans l'inventaire.
+  check("outil présent: session_open", names.includes("session_open"));
+  check("outil présent: session_close", names.includes("session_close"));
 
   // grant_channel sans connexion WhatsApp doit échouer proprement (pas de crash).
   const grantRes = await client.callTool({
