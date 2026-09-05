@@ -125,9 +125,13 @@ try {
     `sous concurrence sur un orphelin, un seul des ${N} process acquiert (gagnants=${orphanWinners.length})`,
     orphanWinners.length === 1
   );
+  // Sous concurrence, un pair peut avoir déjà supprimé l'orphelin quand le gagnant lit le
+  // PID : reclaimedFrom vaut alors null (rien à signaler) — c'est correct. L'invariant à
+  // prouver n'est pas « a lu le PID mort » mais « n'a JAMAIS cassé un verrou VIVANT ».
   check(
-    "le gagnant orphelin a bien cassé le verrou mort (reclaimedFrom = PID mort)",
-    orphanWinners.length === 1 && orphanWinners[0].reclaimedFrom === deadForRace.pid
+    "le gagnant orphelin n'a jamais cassé un verrou vivant (reclaimedFrom absent ou PID mort)",
+    orphanWinners.length === 1 &&
+      (orphanWinners[0].reclaimedFrom == null || !isProcessAlive(orphanWinners[0].reclaimedFrom))
   );
   check(
     "les perdants voient un détenteur vivant (heldByPid = le gagnant), pas une acquisition",
