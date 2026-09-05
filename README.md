@@ -168,6 +168,39 @@ plafond est signalé comme suspendu.
 npm run list-groups   # après avoir coupé `npm start`
 ```
 
+## Sessions : un jeton par conversation
+
+`grant_channel` **capte** un groupe pour toute la machine, de façon persistante. **Ouvrir**
+une session est un second geste, distinct et éphémère : `session_open(channels)` rend un
+jeton que le LLM représente à chaque `get_recent_messages(session, channel)`. Deux
+conversations qui partagent la même connexion Desktop/Cowork ne se voient plus l'une
+l'autre — chacune ne lit que ce que **sa propre session** couvre.
+
+- `session_open` refuse tout canal hors `grants ∩ plafond`, **avant** toute demande de
+  consentement (Touch ID si activé, sinon élicitation — sans élicitation ni Touch ID,
+  `session_open` **refuse**, il n'y a pas de repli « permissions du client »).
+- Le jeton a une durée de vie (**8 h par défaut**, `WHATSAPP_SESSION_TTL_MS`) et peut être
+  fermé avant terme (`session_close`, ou `npm run sessions -- close <id>` en dehors de
+  toute conversation).
+- À **chaque lecture**, le plafond est re-vérifié : un canal retiré d'`allowlist.json`
+  après l'ouverture d'une session est **suspendu**, même si la session est encore valide.
+- Un jeton **sélectionne un périmètre**, il n'authentifie personne (même doctrine que le
+  reste du projet) : c'est un fichier en clair sur ta machine, lisible par quiconque a
+  accès au disque. Voir [ADR-0004](docs/adr/0004-droits-par-session.md) pour le détail et
+  les bornes assumées.
+- **Rupture assumée** : `get_recent_messages` **exige** désormais une session — l'appeler
+  sans jeton refuse, avec un message qui explique comment en ouvrir une.
+
+Flux type : `whatsapp_status → list_groups → grant_channel(<groupe>) →
+session_open(<groupe(s)>) → get_recent_messages(session, channel)`.
+
+```bash
+npm run sessions -- list                                   # sessions actives
+npm run sessions -- close <id>                              # révoque un jeton précis
+npm run sessions -- close --all                              # révoque tout
+npm run sessions -- open --channels <jid1,jid2> --ttl 30d    # jeton longue durée (CLI/scripts)
+```
+
 ## Persistance des messages sur disque
 
 Avec `WHATSAPP_PERSIST=true` (défaut), les messages des canaux autorisés sont archivés
@@ -218,14 +251,17 @@ variable d'environnement n'est nécessaire : le choix des canaux se fait en conv
 | Outil | Rôle |
 |---|---|
 | `whatsapp_help` | Aide déclenchée : ce que fait le serveur et comment s'en servir. Indirige vers ce README pour le détail. |
-| `whatsapp_status` | État de la connexion, canaux autorisés, messages en mémoire. |
-| `list_groups` | Les groupes **du plafond** (id, nom, déjà autorisé ou non) + le nombre de groupes masqués. Aucun message. |
-| `grant_channel` | Autorise **la lecture** d'un groupe, de façon persistante. |
+| `whatsapp_status` | État de la connexion, canaux autorisés, messages en mémoire. `session` optionnel : montre le scope + l'expiration de TA session ; sans jeton (ou invalide), « aucune session » + le nombre de sessions actives (jamais leur contenu). |
+| `list_groups` | Les groupes **du plafond** (id, nom, déjà autorisé ou non) + le nombre de groupes masqués. `session` optionnel : marque `inSession`. Aucun message. |
+| `grant_channel` | Autorise **la lecture** d'un groupe, de façon persistante (capter — machine-wide). |
 | `revoke_channel` | Retire l'autorisation d'un groupe. |
-| `get_recent_messages` | Messages récents d'**un** canal autorisé (`channel`, `limit`). |
+| `session_open` | Ouvre une session de lecture (`channels[]`, `ttlMs?`) sur des groupes **déjà autorisés** ⊆ grants ∩ plafond, sous consentement. Rend `{ session, expiresAt, channels }`. |
+| `session_close` | Ferme une session (révoque le jeton présenté). Réduire est toujours permis, sans cérémonie. |
+| `get_recent_messages` | Messages récents d'**un** canal, **dans le périmètre d'une session valide** (`session` requis, `channel`, `limit`). |
 
 Il n'y a **pas** d'outil d'envoi. Pour analyser plusieurs canaux, le LLM appelle
-`get_recent_messages` une fois par canal.
+`get_recent_messages` une fois par canal (dans la même session s'ils y sont tous, sinon
+une session par canal).
 
 ## Configuration (`.env`)
 
@@ -241,15 +277,19 @@ Tout est optionnel. Voir [`.env.example`](.env.example).
 | `WHATSAPP_AUTH_DIR` | `./auth` | Identifiants de session. **Effacé en cas de déconnexion.** |
 | `WHATSAPP_DATA_DIR` | `./data` | Archive des messages. |
 | `WHATSAPP_SETTINGS_FILE` | `./settings.json` | Canaux autorisés (grants). |
-| `WHATSAPP_ALLOWLIST_FILE` | `./allowlist.json` | Le **plafond** : édité à la main uniquement, borne grants, ingestion et lecture. |
+| `WHATSAPP_ALLOWLIST_FILE` | `./allowlist.json` | Le **plafond** : édité à la main uniquement, borne grants, ingestion, sessions et lecture. |
+| `WHATSAPP_STRONG_AUTH_FILE` | `./strong-auth.json` | Drapeau Touch ID (ADR-0003), aussi utilisé par `session_open`. |
+| `WHATSAPP_SESSIONS_DIR` | `./sessions` | Registre des sessions de lecture (un fichier par jeton, gitignored). |
+| `WHATSAPP_SESSION_TTL_MS` | `28800000` (8 h) | Durée de vie par défaut d'une session, en millisecondes. |
 
 Il n'existe **aucune** variable pour activer l'envoi.
 
 ## Test rapide (sans WhatsApp)
 
 ```bash
-npm test          # store + autorisations + couche MCP
-npm run test:mcp  # couche MCP seule, sans appairage
+npm test              # store + autorisations + sessions + couche MCP
+npm run test:mcp      # couche MCP seule, sans appairage
+npm run test:sessions # registre de sessions + consentement + protocole MCP réel
 ```
 
 ## Notes techniques
@@ -268,6 +308,14 @@ npm run test:mcp  # couche MCP seule, sans appairage
 - [ADR-0001 — Modèle d'accès aux canaux](docs/adr/0001-modele-d-acces-aux-canaux.md) :
   pourquoi les autorisations plutôt qu'un groupe figé, pourquoi la lecture seule, et le
   contrat à respecter si l'écriture revient un jour.
+- [ADR-0002 — Le plafond et le consentement](docs/adr/0002-le-plafond-et-le-consentement.md) :
+  `allowlist.json`, édité à la main, borne grants/ingestion/lecture ; le consentement par
+  élicitation.
+- [ADR-0003 — Le consentement par présence (Touch ID)](docs/adr/0003-consentement-par-presence-touch-id.md) :
+  la hiérarchie de consentement à trois crans sur `grant_channel`.
+- [ADR-0004 — Droits par session](docs/adr/0004-droits-par-session.md) : un jeton porté
+  dans chaque appel, ouvert par Touch ID/élicitation, périmètre ⊆ grants ∩ plafond, TTL et
+  révocation — voir aussi la section [Sessions](#sessions--un-jeton-par-conversation).
 
 ## Licence
 

@@ -62,3 +62,58 @@ export function buildGrantConsent({
     return elicitationConsent({ jid, subject }); // OFF -> comportement ADR-0002 inchangé
   };
 }
+
+// Consentement de `session_open` (fiche 20260902223310499 — droits par session).
+// Composé comme buildGrantConsent (ADR-0003), avec UNE différence volontaire :
+// pas de repli « permissions client ». Un grant est déjà borné par le plafond ;
+// une session OUVRE un périmètre neuf, elle mérite une garantie plus forte. Un
+// client qui ne peut pas présenter de formulaire, drapeau strong-auth OFF,
+// n'ouvre RIEN — fail-closed plutôt que le fail-open de la fiche 0008.
+export function buildSessionConsent({
+  isStrongAuthEnabled,
+  checkPresence,
+  isElicitationSupported,
+  server,
+  humanDuration = (ms) => `${Math.round(ms / 3600000)} h`,
+  log = () => {},
+}) {
+  return async ({ subjects, ttlMs }) => {
+    const names = subjects.map((s) => `« ${s} »`).join(", ");
+    const reason = `Ouvrir une session de lecture WhatsApp sur ${names} pendant ${humanDuration(ttlMs)} ?`;
+
+    if (isStrongAuthEnabled()) {
+      let res;
+      try {
+        res = await checkPresence({ reason });
+      } catch (e) {
+        log("Touch ID: cérémonie impossible :", e?.message);
+        return { accepted: false, reason: "Touch ID: cérémonie impossible" };
+      }
+      if (res?.ok) return { accepted: true, via: "touchid" };
+      log("Touch ID refusé :", res?.status || "échec");
+      return { accepted: false, reason: `Touch ID: ${res?.status || "échec"}` };
+    }
+
+    if (!isElicitationSupported()) {
+      // PAS de repli « permissions client » ici : voir le commentaire d'en-tête.
+      return {
+        accepted: false,
+        reason:
+          "drapeau strong-auth désactivé et le client ne supporte pas l'élicitation : " +
+          "aucun consentement vérifiable n'est disponible, la session n'est pas ouverte",
+      };
+    }
+
+    try {
+      const res = await server.elicitInput({
+        message: `${reason} Accept = ouvrir la session · Decline = refuser.`,
+        requestedSchema: { type: "object", properties: {} },
+      });
+      if (res?.action === "accept") return { accepted: true, via: "elicitation" };
+      return { accepted: false, reason: `formulaire ${res?.action || "sans réponse"}` };
+    } catch (e) {
+      log("Élicitation impossible :", e?.message);
+      return { accepted: false, reason: "le formulaire de consentement n'a pas pu être affiché" };
+    }
+  };
+}

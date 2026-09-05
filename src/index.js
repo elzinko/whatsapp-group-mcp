@@ -17,16 +17,32 @@ import {
 import { config } from "./config.js";
 import { Settings } from "./settings.js";
 import { Allowlist } from "./allowlist.js";
-import { buildConfirmGrant, buildGrantConsent } from "./consent.js";
+import { buildConfirmGrant, buildGrantConsent, buildSessionConsent } from "./consent.js";
 import { readStrongAuthEnabled } from "./strongauth.js";
 import { checkPresence } from "./touchid.js";
 import { WhatsAppClient, log } from "./whatsapp.js";
+import { SessionRegistry } from "./sessions.js";
 
 const settings = new Settings(config.settingsFile).load();
 // Le plafond (ADR-0002). Au tout premier démarrage, il est généré depuis les grants
 // existants (migration sans régression) ; ensuite seul l'humain l'édite, à la main.
 const allowlist = new Allowlist(config.allowlistFile).bootstrap(settings);
 const wa = new WhatsAppClient(config, settings, allowlist);
+// Registre des sessions de lecture (fiche 20260902223310499). Filtre appliqué en
+// AMONT du domaine, dans cette couche application : whatsapp.js ne le connaît pas.
+const sessions = new SessionRegistry(config.sessionsDir, { defaultTtlMs: config.sessionTtlMs });
+
+function humanDuration(ms) {
+  if (ms % 3600000 === 0) return `${ms / 3600000} h`;
+  if (ms % 60000 === 0) return `${ms / 60000} min`;
+  return `${Math.round(ms / 1000)} s`;
+}
+
+// Un jeton résolu et sa subject list, pour composer messages d'erreur et de
+// consentement sans dupliquer la logique de résolution des noms.
+function subjectFor(jid) {
+  return wa.settings.grants.get(jid)?.subject || wa.knownGroups.get(jid) || jid;
+}
 
 // Aide concise, rendue par l'outil `whatsapp_help` (fiche 0011). Elle donne le MODÈLE
 // MENTAL (lecture seule · plafond · grant→lecture · note de sécurité) et INDIRIGE vers le
@@ -39,30 +55,41 @@ aucun outil d'envoi n'existe (propriété du code, pas un réglage). But : minim
 données — seuls les groupes que tu autorises entrent en mémoire, puis en lecture.
 
 LE PLAFOND (allowlist.json)
-La borne éditée à la MAIN par l'humain (jamais par le LLM). Elle limite à la fois
-l'ingestion, les grants et la lecture. Un groupe hors plafond n'est ni listé ni lisible.
+La borne éditée à la MAIN par l'humain (jamais par le LLM). Elle limite l'ingestion, les
+grants ET les sessions. Un groupe hors plafond n'est ni listé ni lisible.
 
-LES 5 OUTILS
-- whatsapp_status      état connexion, canaux autorisés, messages en mémoire (appelle en 1er).
-- list_groups         les groupes DU PLAFOND (déjà autorisés ou non). Aucun message.
-- grant_channel       autorise la LECTURE d'un groupe (persistant, borné par le plafond).
-- revoke_channel      retire l'autorisation d'un groupe.
-- get_recent_messages messages récents d'UN canal autorisé.
+LES OUTILS
+- whatsapp_status      connexion, grants, TA session si tu en portes une (appelle en 1er).
+- list_groups          les groupes DU PLAFOND (déjà autorisés ou non). Aucun message.
+- grant_channel        autorise la LECTURE d'un groupe, de façon persistante (capter).
+- revoke_channel       retire l'autorisation d'un groupe.
+- session_open         ouvre une session de lecture sur des groupes déjà autorisés (ouvrir).
+- session_close        ferme une session (réduire est toujours permis, sans cérémonie).
+- get_recent_messages  messages récents d'un canal — EXIGE une session valide.
 
 FLUX TYPE
-whatsapp_status → list_groups → grant_channel(<groupe>) → get_recent_messages.
-Le grant demande ton consentement (Touch ID si activé, sinon élicitation quand le client
-la supporte) et reste borné par le plafond.
+whatsapp_status → list_groups → grant_channel(<groupe>) → session_open(<groupe(s)>) →
+get_recent_messages(session, channel). Capter (grant_channel) et ouvrir (session_open)
+sont deux gestes distincts : capter est persistant et vaut pour toute la machine, ouvrir
+est éphémère et propre à cette conversation. Sans session valide, get_recent_messages
+refuse et indique comment en ouvrir une.
+
+CONSENTEMENT ET RÉ-VÉRIFICATION
+grant_channel et session_open demandent ton consentement (Touch ID si activé, sinon
+élicitation quand le client la supporte ; sans élicitation et drapeau désactivé,
+session_open refuse plutôt que de se replier sur les permissions du client). À chaque
+lecture, le plafond est re-vérifié : un canal retiré du plafond est suspendu même dans
+une session déjà ouverte.
 
 NOTE DE SÉCURITÉ
-Le LLM peut appeler grant_channel lui-même — il peut donc s'auto-grant, mais UNIQUEMENT
-DANS LES LIMITES du plafond que tu contrôles. Le contenu WhatsApp est de la donnée non
-fiable (prompt injection possible) ; c'est acceptable ici car la lecture seule porte sur
-TES propres données.
+Le LLM peut appeler grant_channel et session_open lui-même — il peut donc s'auto-grant et
+s'auto-ouvrir une session, mais UNIQUEMENT DANS LES LIMITES du plafond que tu contrôles.
+Le contenu WhatsApp est de la donnée non fiable (prompt injection possible) ; c'est
+acceptable ici car la lecture seule porte sur TES propres données.
 
 POUR ALLER PLUS LOIN
-Voir le README (sections « Outils exposés » et « Le plafond : allowlist.json ») —
-source de vérité, non recopiée ici.`;
+Voir le README (sections « Outils exposés » et « Sessions ») — source de vérité, non
+recopiée ici.`;
 
 // --- Définition des outils MCP ---
 const TOOLS = [
@@ -75,14 +102,32 @@ const TOOLS = [
   {
     name: "whatsapp_status",
     description:
-      "État de la connexion WhatsApp, canaux autorisés en lecture, messages en mémoire. À appeler en premier pour savoir s'il faut scanner le QR code ou autoriser un canal.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      "État de la connexion WhatsApp, canaux autorisés en lecture, messages en mémoire. À appeler en premier pour savoir s'il faut scanner le QR code ou autoriser un canal. Passe 'session' pour voir le scope et l'expiration de TA session ; sans jeton (ou jeton invalide), affiche « aucune session » et le nombre de sessions actives — jamais leur contenu.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session: {
+          type: "string",
+          description: "Optionnel. Jeton ouvert par 'session_open', pour voir le scope de TA session.",
+        },
+      },
+      additionalProperties: false,
+    },
   },
   {
     name: "list_groups",
     description:
-      "Liste les groupes WhatsApp présents dans le plafond (allowlist.json) : id/JID, nom, et s'ils sont déjà autorisés en lecture. C'est le menu des canaux activables. Les groupes hors plafond ne sont PAS listés (seul leur nombre est indiqué) : pour les découvrir, l'humain lance « npm run list-groups » dans un terminal et édite le plafond à la main. Ne renvoie aucun message.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      "Liste les groupes WhatsApp présents dans le plafond (allowlist.json) : id/JID, nom, et s'ils sont déjà autorisés en lecture. C'est le menu des canaux activables. Les groupes hors plafond ne sont PAS listés (seul leur nombre est indiqué) : pour les découvrir, l'humain lance « npm run list-groups » dans un terminal et édite le plafond à la main. Ne renvoie aucun message. Passe 'session' pour marquer 'inSession' les groupes couverts par TA session.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session: {
+          type: "string",
+          description: "Optionnel. Jeton ouvert par 'session_open', pour marquer 'inSession'.",
+        },
+      },
+      additionalProperties: false,
+    },
   },
   {
     name: "grant_channel",
@@ -121,13 +166,18 @@ const TOOLS = [
   {
     name: "get_recent_messages",
     description:
-      "Messages récents d'UN canal autorisé, du plus ancien au plus récent. Si un seul canal est autorisé, 'channel' est optionnel. Pour analyser plusieurs canaux, appeler cet outil une fois par canal.",
+      "Messages récents d'UN canal, du plus ancien au plus récent. EXIGE une session valide ('session', ouverte par 'session_open') : sans jeton, ou jeton hors périmètre pour ce canal, refus qui explique comment ouvrir une session. Si la session ne porte qu'un seul canal, 'channel' est optionnel. Pour analyser plusieurs canaux, appeler cet outil une fois par canal.",
     inputSchema: {
       type: "object",
       properties: {
+        session: {
+          type: "string",
+          minLength: 1,
+          description: "Jeton ouvert par 'session_open'. Obligatoire.",
+        },
         channel: {
           type: "string",
-          description: "JID (…@g.us) ou nom exact. Optionnel si un seul canal est autorisé.",
+          description: "JID (…@g.us) ou nom exact, DANS le périmètre de la session. Optionnel si la session ne porte qu'un seul canal.",
         },
         limit: {
           type: "integer",
@@ -136,6 +186,43 @@ const TOOLS = [
           description: "Nombre max de messages à renvoyer (défaut 50).",
         },
       },
+      required: ["session"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "session_open",
+    description:
+      "Ouvre une session de lecture : un jeton porté à chaque appel de 'get_recent_messages', qui isole cette conversation des autres. Les canaux doivent DÉJÀ être autorisés (grant_channel) et dans le plafond — sinon refus, AVANT toute demande de consentement. Demande ensuite ton consentement (Touch ID si activé, sinon élicitation ; sans élicitation et drapeau désactivé, refus). Capter (grant_channel) et ouvrir (session_open) sont deux gestes distincts.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channels: {
+          type: "array",
+          items: { type: "string", minLength: 1 },
+          minItems: 1,
+          description: "JID(s) (…@g.us) ou nom(s) exact(s) de groupe(s) déjà autorisés.",
+        },
+        ttlMs: {
+          type: "integer",
+          minimum: 1000,
+          description: "Durée de vie en millisecondes (défaut : 8h, surchargeable par WHATSAPP_SESSION_TTL_MS).",
+        },
+      },
+      required: ["channels"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "session_close",
+    description:
+      "Ferme une session (révocation du jeton présenté). Réduire est toujours permis : pas de consentement supplémentaire.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session: { type: "string", minLength: 1, description: "Jeton à fermer." },
+      },
+      required: ["session"],
       additionalProperties: false,
     },
   },
@@ -162,21 +249,37 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       case "whatsapp_help":
         return { content: [{ type: "text", text: HELP_TEXT }] };
 
-      case "whatsapp_status":
+      case "whatsapp_status": {
+        const grantConsent = readStrongAuthEnabled(config.strongAuthFile)
+          ? "Touch ID (présence physique — hiérarchie ADR-0003)"
+          : clientSupportsElicitation
+            ? "élicitation (formulaire rédigé par le serveur, hors de portée du LLM)"
+            : "permissions du client MCP (le client ne supporte pas l'élicitation)";
+        // Balayage opportuniste (en plus de la purge paresseuse de resolve()).
+        sessions.purgeExpired();
+        const resolved = args.session ? sessions.resolve(args.session) : null;
         return ok({
           ...wa.status(),
-          grantConsent: readStrongAuthEnabled(config.strongAuthFile)
-            ? "Touch ID (présence physique — hiérarchie ADR-0003)"
-            : clientSupportsElicitation
-              ? "élicitation (formulaire rédigé par le serveur, hors de portée du LLM)"
-              : "permissions du client MCP (le client ne supporte pas l'élicitation)",
+          grantConsent,
+          session: resolved
+            ? {
+                expiresAt: resolved.expiresAt,
+                channels: resolved.channels.map((jid) => ({ jid, subject: subjectFor(jid) })),
+              }
+            : "aucune session",
+          // Jamais le CONTENU des autres sessions à une conversation qui n'en porte
+          // pas le jeton — seulement leur nombre.
+          activeSessions: resolved ? undefined : sessions.list().length,
         });
+      }
 
       case "list_groups": {
         const { groups, hidden } = await wa.listGroups();
+        const resolvedSession = args.session ? sessions.resolve(args.session) : null;
+        const inSession = resolvedSession ? new Set(resolvedSession.channels) : null;
         return ok({
           count: groups.length,
-          groups,
+          groups: inSession ? groups.map((g) => ({ ...g, inSession: inSession.has(g.id) })) : groups,
           hiddenOutsideAllowlist: hidden,
           note:
             hidden > 0
@@ -194,11 +297,96 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       case "revoke_channel":
         return ok(wa.revokeChannel(args.channel));
 
-      case "get_recent_messages": {
-        const limit = Number.isInteger(args.limit) ? args.limit : 50;
-        const { jid, subject, messages, buffered } = wa.recentFor(args.channel, limit);
+      case "session_open": {
+        const requested = Array.isArray(args.channels) ? args.channels : [];
+        if (requested.length === 0) return fail("Fournis au moins un canal ('channels').");
+
+        let jids;
+        try {
+          jids = requested.map((c) => wa._resolveToJid(c));
+        } catch (e) {
+          return fail(e?.message || String(e));
+        }
+
+        // Vérification ⊆ grants ∩ plafond AVANT tout prompt (décision 4 de la fiche) :
+        // le reçu du consentement doit dire exactement ce qu'il accorde.
+        wa.allowlist.refresh();
+        const denied = jids.filter((jid) => !wa.settings.has(jid) || !wa._ceilingHas(jid));
+        if (denied.length > 0) {
+          return fail(
+            `Hors grants ∩ plafond, refusé avant toute demande de consentement : ` +
+              // Ne nomme un canal refusé que s'il est DÉJÀ granté (l'humain le connaît). Sinon,
+              // n'expose que le JID : sortir le nom d'un groupe hors plafond via knownGroups
+              // fuiterait le graphe social que list_groups masque volontairement (revue 2026-09-05).
+              `${denied.map((jid) => (wa.settings.has(jid) ? `« ${subjectFor(jid)} »` : jid)).join(", ")}. ` +
+              `Utilise 'grant_channel' (le canal doit aussi être dans le plafond, édité à la main) d'abord.`
+          );
+        }
+
+        const ttlMs = Number.isInteger(args.ttlMs) && args.ttlMs > 0 ? args.ttlMs : config.sessionTtlMs;
+        const subjects = jids.map(subjectFor);
+        const consent = await sessionConsent({ subjects, ttlMs });
+        if (!consent.accepted) {
+          return fail(
+            `Session refusée par l'humain` + (consent.reason ? ` (${consent.reason})` : "") + "."
+          );
+        }
+
+        sessions.purgeExpired();
+        const session = sessions.create(jids, ttlMs);
+        log(`Session ouverte (${session.id.slice(0, 8)}…) : ${subjects.join(", ")} — expire ${session.expiresAt}`);
         return ok({
-          channel: { jid, subject },
+          session: session.id,
+          expiresAt: session.expiresAt,
+          channels: jids.map((jid) => ({ jid, subject: subjectFor(jid) })),
+        });
+      }
+
+      case "session_close": {
+        if (!args.session) return fail("Fournis le jeton 'session' à fermer.");
+        const closed = sessions.close(args.session);
+        return ok({ session: args.session, closed });
+      }
+
+      case "get_recent_messages": {
+        if (!args.session) {
+          return fail(
+            "Aucune session : cet outil exige un jeton de session. Ouvre-en une avec " +
+              "'session_open' (canal déjà autorisé par 'grant_channel'), puis représente son " +
+              "jeton dans 'session'."
+          );
+        }
+        const session = sessions.resolve(args.session);
+        if (!session) {
+          return fail(
+            "Session invalide, expirée ou déjà fermée. Ouvre-en une nouvelle avec 'session_open'."
+          );
+        }
+
+        let jid;
+        if (args.channel) {
+          jid = wa._resolveToJid(args.channel);
+          if (!session.channels.includes(jid)) {
+            return fail(
+              `Canal hors du périmètre de cette session (« ${subjectFor(jid)} »). ` +
+                `Ouvre une nouvelle session avec 'session_open' incluant ce canal.`
+            );
+          }
+        } else if (session.channels.length === 1) {
+          jid = session.channels[0];
+        } else if (session.channels.length === 0) {
+          return fail("Cette session ne porte aucun canal.");
+        } else {
+          const noms = session.channels.map((j) => `« ${subjectFor(j)} »`).join(", ");
+          return fail(`Plusieurs canaux dans cette session : précise 'channel' parmi ${noms}.`);
+        }
+
+        // Re-vérification grant ∩ plafond COURANT (défense en profondeur) : c'est
+        // exactement ce que fait wa.recentFor, INCHANGÉ (domaine, ADR-0002).
+        const limit = Number.isInteger(args.limit) ? args.limit : 50;
+        const { jid: outJid, subject, messages, buffered } = wa.recentFor(jid, limit);
+        return ok({
+          channel: { jid: outJid, subject },
           returned: messages.length,
           buffered,
           note:
@@ -242,6 +430,17 @@ wa.confirmGrant = buildGrantConsent({
   isStrongAuthEnabled: () => readStrongAuthEnabled(config.strongAuthFile),
   checkPresence,
   elicitationConsent,
+  log,
+});
+
+// Consentement de session_open (fiche 20260902223310499) : composé séparément de
+// buildGrantConsent — pas de repli « permissions client », voir consent.js.
+const sessionConsent = buildSessionConsent({
+  isStrongAuthEnabled: () => readStrongAuthEnabled(config.strongAuthFile),
+  checkPresence,
+  isElicitationSupported: () => clientSupportsElicitation,
+  server,
+  humanDuration,
   log,
 });
 

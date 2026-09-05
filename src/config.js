@@ -5,6 +5,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { DEFAULT_TTL_MS as DEFAULT_SESSION_TTL_MS } from "./sessions.js";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
 
@@ -64,6 +66,20 @@ const strongAuthFile = process.env.WHATSAPP_STRONG_AUTH_FILE
   ? path.resolve(projectRoot, process.env.WHATSAPP_STRONG_AUTH_FILE)
   : path.join(projectRoot, "strong-auth.json");
 
+// Registre des sessions de lecture (fiche 20260902223310499) : un fichier par
+// jeton, à côté de settings.json. Gitignored, dossier 0700 (voir src/sessions.js).
+const sessionsDir = process.env.WHATSAPP_SESSIONS_DIR
+  ? path.resolve(projectRoot, process.env.WHATSAPP_SESSIONS_DIR)
+  : path.join(projectRoot, "sessions");
+
+// TTL par défaut d'une session, en millisecondes. 8h (fiche), surchargeable par
+// variable d'environnement. Toute valeur non entière ou <= 0 est ignorée
+// (fail-secure vers le défaut plutôt qu'un TTL absurde ou nul).
+const sessionTtlMs = (() => {
+  const raw = Number.parseInt(process.env.WHATSAPP_SESSION_TTL_MS || "", 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_SESSION_TTL_MS;
+})();
+
 export const config = {
   projectRoot,
   // Amorçage uniquement : au tout premier démarrage, si aucun grant n'existe encore,
@@ -83,6 +99,8 @@ export const config = {
   settingsFile,
   allowlistFile,
   strongAuthFile,
+  sessionsDir,
+  sessionTtlMs,
 };
 
 // Un JID de groupe WhatsApp se termine toujours par "@g.us".
