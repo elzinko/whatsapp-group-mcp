@@ -6,7 +6,7 @@ priority: P2
 version:
 epic:
 status: todo
-ready:
+ready: 2026-09-05
 pr:
 created: 2026-07-18
 ---
@@ -27,8 +27,9 @@ local (la clé vivrait à côté des données), mais trois mesures gratuites res
 ## Critères d'acceptation
 
 - [x] `auth/` et `data/` en 700, y compris à la (re)création par le code
-- [ ] FileVault vérifié actif (constat noté ici)
-- [ ] README : une ligne « jamais dans un dossier synchronisé » dans la section sécurité
+- [x] FileVault vérifié actif (constat noté ici) — `fdesetup status` → « FileVault is On » (2026-09-05)
+- [x] README : une ligne « jamais dans un dossier synchronisé » dans la section sécurité
+      (sous-section « Hygiène locale (données au repos) » : permissions 700/600, FileVault, dossier non synchronisé)
 
 ## Notes
 
