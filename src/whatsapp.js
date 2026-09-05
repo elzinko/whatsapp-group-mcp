@@ -203,7 +203,7 @@ export class WhatsAppClient {
     // qui dit quoi faire, sans jamais toucher au dossier auth/ (fiche 0009).
     const lockResult = this.authLock.acquire();
     if (!lockResult.acquired) {
-      const message = AuthLock.describeConflict(lockResult.heldByPid);
+      const message = AuthLock.describeConflict(lockResult.heldByPid, this.config.authLockFile);
       log(message);
       throw new Error(message);
     }

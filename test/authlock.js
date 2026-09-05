@@ -39,10 +39,12 @@ try {
   check("le fichier n'a pas été altéré par la tentative perdante", fs.readFileSync(lockPath, "utf8").trim() === String(process.pid));
 
   // 3) Le message du perdant dit quoi faire, pas juste "erreur".
-  const message = AuthLock.describeConflict(second.heldByPid);
+  const message = AuthLock.describeConflict(second.heldByPid, lockPath);
   check("le message mentionne npm run stop", message.includes("npm run stop"));
   check("le message mentionne le PID détenteur", message.includes(String(process.pid)));
   check("le message n'est pas un simple mot 'erreur'", message.length > 20 && /auth/.test(message));
+  // P1 : échappatoire réelle en cas de PID recyclé (npm run stop ne supprime pas le verrou).
+  check("le message donne l'échappatoire manuelle (rm du fichier verrou)", message.includes(`rm ${lockPath}`));
 
   // 4) release() libère ; re-acquire OK ensuite (autre "process" représenté par un PID différent).
   owner.release();
@@ -99,6 +101,37 @@ try {
   check(
     "le fichier de verrou final contient le PID du seul gagnant",
     fs.readFileSync(raceLockPath, "utf8").trim() === String(winner.pid)
+  );
+
+  // 8) Exclusivité sous concurrence sur un verrou ORPHELIN (le cas qui a fait tomber la
+  //    1re version : la réclamation par rename ÉCRASE et n'arbitre rien, donc N casseurs
+  //    concurrents gagnaient tous). Ici : un orphelin (PID mort) pré-posé, N process
+  //    lancés ensemble ; le gagnant TIENT le verrou (holdMs) pendant que les autres
+  //    tentent. Un seul doit acquérir ; les autres voient le gagnant vivant et se retirent.
+  const orphanLockPath = path.join(tmp, "orphan-race.lock");
+  const deadForRace = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
+  fs.writeFileSync(orphanLockPath, String(deadForRace.pid)); // orphelin : PID mort
+  check("le PID pré-posé pour la course orpheline est bien mort", !isProcessAlive(deadForRace.pid));
+
+  const HOLD_MS = 800; // > temps de démarrage/tentative des perdants, pour qu'ils voient le gagnant vivant
+  const N = 4;
+  const workers = Array.from({ length: N }, () =>
+    spawn(process.execPath, [helper, orphanLockPath, String(HOLD_MS)])
+  );
+  const outs = await Promise.all(workers.map(collect));
+  const orphanResults = outs.map((o) => JSON.parse(o));
+  const orphanWinners = orphanResults.filter((r) => r.acquired);
+  check(
+    `sous concurrence sur un orphelin, un seul des ${N} process acquiert (gagnants=${orphanWinners.length})`,
+    orphanWinners.length === 1
+  );
+  check(
+    "le gagnant orphelin a bien cassé le verrou mort (reclaimedFrom = PID mort)",
+    orphanWinners.length === 1 && orphanWinners[0].reclaimedFrom === deadForRace.pid
+  );
+  check(
+    "les perdants voient un détenteur vivant (heldByPid = le gagnant), pas une acquisition",
+    orphanResults.filter((r) => !r.acquired).every((r) => r.heldByPid === orphanWinners[0]?.pid)
   );
 } catch (e) {
   console.error("Erreur test:", e);

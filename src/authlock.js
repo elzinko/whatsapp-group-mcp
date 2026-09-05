@@ -9,10 +9,32 @@
 // c'est l'exclusivité). Le fichier contient le PID du détenteur.
 //   - Si le fichier existe et son PID est VIVANT (process.kill(pid, 0) ne throw pas
 //     ESRCH) et que ce n'est pas nous : le verrou est TENU, on échoue proprement.
-//   - Si le fichier existe mais son PID est MORT (crash, kill -9) : verrou ORPHELIN,
-//     on le RÉCLAME (réécriture atomique avec notre PID) sans intervention humaine.
-//     C'est le critère central de la fiche : un verrou qui survit à un crash ne doit
-//     jamais transformer une panne transitoire en blocage permanent.
+//   - Si le fichier existe mais son PID est MORT (crash, kill -9) : verrou ORPHELIN.
+//     On le supprime, puis on RETENTE le create O_EXCL — qui reste le SEUL arbitre
+//     d'acquisition. Deux process qui récupèrent le même orphelin ne peuvent pas
+//     réussir le create tous les deux : c'est ça qui empêche la collision (un premier
+//     jet réclamait par rename, qui ÉCRASE et n'arbitre rien — deux récupérations
+//     concurrentes gagnaient toutes les deux ⇒ la collision 440 que la fiche interdit).
+//     C'est le critère central : un verrou qui survit à un crash ne doit jamais
+//     transformer une panne transitoire en blocage permanent.
+//
+// MODÈLE DE CONCURRENCE (à connaître). Le contexte est COOPÉRATIF : même utilisateur,
+// même machine, l'ennemi réel est le double-démarrage accidentel (Desktop qui relance
+// son MCP pendant qu'une session Code démarre), pas un adversaire qui aligne des
+// courses à la microseconde. Le create O_EXCL rend l'acquisition sur dossier VIERGE
+// parfaitement exclusive. Sur récupération d'ORPHELIN, un petit jitter aléatoire
+// désynchronise deux récupérations simultanées avant la suppression, de sorte qu'un
+// seul recrée le verrou et que l'autre le relit « vivant » et se retire. Résiduel
+// assumé : deux crash-recoveries dans la même fenêtre de ~ms restent théoriquement
+// possibles — acceptable pour ce modèle coopératif ; l'escalade serait un vrai lock
+// distribué (hors périmètre d'un serveur perso en lecture seule).
+//
+// PID RECYCLÉ (limite documentée). isProcessAlive ne distingue pas un PID mort d'un
+// PID réattribué par l'OS à un AUTRE process (fréquent après un reboot : le fichier
+// verrou survit, son ancien PID — souvent bas — appartient maintenant à un daemon).
+// Dans ce cas rare, le verrou peut refuser de démarrer. L'échappatoire est explicite
+// dans le message d'erreur (supprimer le fichier verrou à la main) ET ci-dessous —
+// `npm run stop` NE supprime PAS ce fichier.
 //
 // EMPLACEMENT DU VERROU : à CÔTÉ de auth/ (ex. "auth.lock"), pas DEDANS. auth/ est
 // entièrement supprimé au wipe post-401 (ré-appairage, voir whatsapp.js) — un verrou
@@ -48,44 +70,97 @@ export class AuthLock {
   // lockPath : chemin du fichier PID.
   // pid      : PID à écrire en cas d'acquisition (injectable pour les tests).
   // isAlive  : vérification d'un PID vivant (injectable pour les tests).
-  constructor(lockPath, { pid = process.pid, isAlive = isProcessAlive } = {}) {
+  // jitterMs : petit délai aléatoire avant de casser un orphelin, pour désynchroniser
+  //            deux récupérations simultanées (injectable pour rendre les tests
+  //            déterministes ; défaut = 0..8 ms aléatoire).
+  constructor(lockPath, { pid = process.pid, isAlive = isProcessAlive, jitterMs } = {}) {
     this.lockPath = lockPath;
     this.pid = pid;
     this.isAlive = isAlive;
+    this.jitterMs = jitterMs;
     this.held = false;
   }
 
   // Tente d'acquérir le verrou. Renvoie :
   //   { acquired: true }                        — verrou libre, pris avec succès
-  //   { acquired: true, reclaimedFrom: <pid> }   — verrou orphelin, réclamé
+  //   { acquired: true, reclaimedFrom: <pid> }   — verrou orphelin, cassé puis repris
   //   { acquired: false, heldByPid: <pid> }      — verrou tenu par un process vivant
+  //
+  // Le create O_EXCL est le SEUL arbitre : sur dossier vierge comme après cassage d'un
+  // orphelin, deux process concurrents ne peuvent pas réussir le create tous les deux.
   acquire() {
-    try {
-      this._writeExclusive();
-      this.held = true;
-      return { acquired: true };
-    } catch (e) {
-      if (e.code !== "EEXIST") throw e;
+    let reclaimedFrom = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        this._writeExclusive();
+        this.held = true;
+        return reclaimedFrom === null ? { acquired: true } : { acquired: true, reclaimedFrom };
+      } catch (e) {
+        if (e.code !== "EEXIST") throw e;
+      }
+
+      const heldByPid = this._readPid();
+      if (heldByPid === this.pid) {
+        // Déjà à nous (redémarrage/reconnexion interne, cf. whatsapp.js#start rappelé
+        // après une coupure) : le verrou est le nôtre, rien à casser.
+        this.held = true;
+        return { acquired: true };
+      }
+      if (heldByPid !== null && this.isAlive(heldByPid)) {
+        return { acquired: false, heldByPid }; // tenu par un process vivant
+      }
+
+      // Orphelin (PID mort, ou fichier illisible/vide) : on le casse, puis on reboucle
+      // vers le create O_EXCL. Jitter d'abord pour désynchroniser deux casseurs.
+      reclaimedFrom = heldByPid;
+      this._sleepJitter();
+      // Re-vérif APRÈS le jitter : si le verrou est devenu VIVANT entre-temps (un autre
+      // process l'a cassé et recréé), on ne casse PAS un verrou vivant — on reboucle et
+      // on le relira « tenu » pour se retirer proprement. Ferme la fenêtre où deux
+      // casseurs supprimeraient tour à tour le verrou fraîchement recréé de l'autre.
+      const current = this._readPid();
+      if (current !== null && current !== this.pid && this.isAlive(current)) {
+        continue;
+      }
+      try {
+        fs.unlinkSync(this.lockPath);
+      } catch (e) {
+        if (e.code !== "ENOENT") throw e; // ENOENT : déjà cassé par un autre → reboucle
+      }
     }
 
+    // Course persistante après plusieurs tours : on tranche proprement plutôt que de
+    // boucler sans fin (livelock). Un vivant détecté ⇒ perdant ; sinon on remonte une
+    // erreur explicite avec l'échappatoire manuelle.
     const heldByPid = this._readPid();
     if (heldByPid !== null && heldByPid !== this.pid && this.isAlive(heldByPid)) {
       return { acquired: false, heldByPid };
     }
-
-    // Verrou orphelin (PID mort) — ou déjà tenu par nous (redémarrage/reconnexion
-    // interne, cf. whatsapp.js#start rappelé après une coupure) : on le réclame.
-    this._reclaim();
-    this.held = true;
-    return heldByPid === null ? { acquired: true } : { acquired: true, reclaimedFrom: heldByPid };
+    throw new Error(
+      `Impossible d'acquérir le verrou ${this.lockPath} après plusieurs tentatives ` +
+        `(course persistante entre process). Réessaie, ou supprime le fichier à la main : ` +
+        `rm ${this.lockPath}`
+    );
   }
 
   // Message actionnable pour le perdant (critère : "quoi faire", pas juste "erreur").
-  static describeConflict(heldByPid) {
+  // Mentionne l'échappatoire réelle : `npm run stop` NE supprime PAS le fichier verrou,
+  // donc en cas de PID recyclé (après reboot) il faut pouvoir le retirer à la main.
+  static describeConflict(heldByPid, lockPath) {
     return (
       `Une autre session utilise déjà auth/ (PID ${heldByPid}). ` +
-      "Coupe-la avec `npm run stop`, ou attends qu'elle libère le verrou."
+      "Coupe-la avec `npm run stop`, ou attends qu'elle libère le verrou. " +
+      (lockPath
+        ? `Si aucun process WhatsApp ne tourne (PID recyclé après un reboot), supprime le verrou : rm ${lockPath}`
+        : "")
     );
+  }
+
+  _sleepJitter() {
+    const ms = Number.isFinite(this.jitterMs) ? this.jitterMs : Math.floor(Math.random() * 8);
+    if (ms <= 0) return;
+    // Sommeil synchrone borné (Atomics.wait) : reste dans le chemin synchrone d'acquire.
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
   }
 
   // Libère le verrou — SEULEMENT s'il nous appartient encore (évite d'effacer le
@@ -108,14 +183,6 @@ export class AuthLock {
     } finally {
       fs.closeSync(fd);
     }
-  }
-
-  // Réécriture atomique (tmp + rename) : jamais de fenêtre où le fichier est vide ou
-  // à moitié écrit pendant qu'un autre process le lit.
-  _reclaim() {
-    const tmp = `${this.lockPath}.tmp.${process.pid}`;
-    fs.writeFileSync(tmp, String(this.pid), { mode: 0o600 });
-    fs.renameSync(tmp, this.lockPath);
   }
 
   _readPid() {
