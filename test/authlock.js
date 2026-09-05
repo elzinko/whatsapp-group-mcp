@@ -48,7 +48,16 @@ try {
 
   // 4) release() libère ; re-acquire OK ensuite (autre "process" représenté par un PID différent).
   owner.release();
-  check("le fichier de verrou disparaît après release()", !fs.existsSync(lockPath));
+  // On vérifie la disparition du fichier SANS existsSync/stat : le couple « contrôle d'état
+  // de fichier puis opération » déclenche le faux positif CodeQL js/file-system-race (sans
+  // objet ici — tmpdir privé, mono-thread). Une lecture qui lève ENOENT prouve la même chose.
+  let lockGone = false;
+  try {
+    fs.readFileSync(lockPath);
+  } catch (e) {
+    lockGone = e.code === "ENOENT";
+  }
+  check("le fichier de verrou disparaît après release()", lockGone);
   const reacquirer = new AuthLock(lockPath, { pid: 555555 });
   const third = reacquirer.acquire();
   check("un nouvel acquire après release() réussit", third.acquired === true);
