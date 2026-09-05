@@ -91,6 +91,22 @@ aussi arrêter sans redémarrer :
 npm run stop
 ```
 
+`npm run stop` est un geste **volontaire** : il coupe les process déjà lancés. Il ne
+protège pas contre une **course** — deux `npm start` déclenchés en même temps peuvent
+tous les deux passer le `stop` puis ouvrir `auth/`. C'est pour ça qu'en plus, un **verrou
+OS automatique** (fichier PID exclusif, à côté de `auth/`) est pris juste avant
+l'ouverture de la session : le premier process gagne, le second **n'ouvre rien** et
+s'arrête avec un message qui dit quoi faire :
+
+```
+Une autre session utilise déjà auth/ (PID xxxx). Coupe-la avec `npm run stop`, ou attends
+qu'elle libère le verrou.
+```
+
+Si le détenteur du verrou plante (`kill -9`, crash), le verrou est **récupéré
+automatiquement** au prochain démarrage — pas besoin de supprimer un fichier à la main.
+Voir `src/authlock.js` (fiche `features/0009-verrou-exclusif-auth.md`).
+
 ## Le plafond : `allowlist.json` — la liste que seul l'humain édite
 
 Avant tout grant, il y a **le plafond** ([ADR-0002](docs/adr/0002-le-plafond-et-le-consentement.md)) :
@@ -239,6 +255,7 @@ Tout est optionnel. Voir [`.env.example`](.env.example).
 | `WHATSAPP_DEVICE_NAME` | `whatsapp-group-mcp` | Nom de l'appareil dans WhatsApp → Appareils liés/connectés. **Figé à l'appairage** : le changer exige de déconnecter l'appareil (téléphone), supprimer `./auth`, et rescanner le QR. |
 | `WHATSAPP_MAX_MESSAGES` | `500` | Taille du tampon **mémoire**, **par canal**. |
 | `WHATSAPP_AUTH_DIR` | `./auth` | Identifiants de session. **Effacé en cas de déconnexion.** |
+| `WHATSAPP_AUTH_LOCK` | `<WHATSAPP_AUTH_DIR>.lock` | Fichier du verrou OS exclusif anti-collision (voir « Un seul process Baileys à la fois »). |
 | `WHATSAPP_DATA_DIR` | `./data` | Archive des messages. |
 | `WHATSAPP_SETTINGS_FILE` | `./settings.json` | Canaux autorisés (grants). |
 | `WHATSAPP_ALLOWLIST_FILE` | `./allowlist.json` | Le **plafond** : édité à la main uniquement, borne grants, ingestion et lecture. |
