@@ -83,9 +83,6 @@ try {
   //    du fichier prouve l'exclusivité (un seul PID, celui du gagnant).
   const raceLockPath = path.join(tmp, "race.lock");
   const helper = path.join(__dirname, "fixtures", "authlock-race-worker.js");
-  const p1 = spawn(process.execPath, [helper, raceLockPath]);
-  const p2 = spawn(process.execPath, [helper, raceLockPath]);
-
   const collect = (proc) =>
     new Promise((resolve) => {
       let out = "";
@@ -93,14 +90,21 @@ try {
       proc.on("close", () => resolve(out.trim()));
     });
 
+  // Le gagnant TIENT le verrou (holdMs) : c'est ce que fait un vrai process (il garde le
+  // verrou tant qu'il tourne). Sans hold, le gagnant sort aussitôt, son PID meurt, et le 2e
+  // récupère l'orphelin → deux "gagnants" comptés à tort (exclusion correcte dans le temps,
+  // mais le test ne modélisait pas la réalité → flaky, rouge sur CI Node 20).
+  const HOLD_FRESH_MS = 800;
+  const p1 = spawn(process.execPath, [helper, raceLockPath, String(HOLD_FRESH_MS)]);
+  const p2 = spawn(process.execPath, [helper, raceLockPath, String(HOLD_FRESH_MS)]);
   const [out1, out2] = await Promise.all([collect(p1), collect(p2)]);
   const results = [JSON.parse(out1), JSON.parse(out2)];
   const acquiredCount = results.filter((r) => r.acquired).length;
-  check("sous concurrence réelle, un seul des deux process acquiert le verrou", acquiredCount === 1);
+  check("sous concurrence réelle (verrou frais), un seul des deux process acquiert", acquiredCount === 1);
   const winner = results.find((r) => r.acquired);
   check(
-    "le fichier de verrou final contient le PID du seul gagnant",
-    fs.readFileSync(raceLockPath, "utf8").trim() === String(winner.pid)
+    "le perdant voit le gagnant vivant (heldByPid = gagnant), pas une acquisition",
+    acquiredCount === 1 && results.filter((r) => !r.acquired).every((r) => r.heldByPid === winner.pid)
   );
 
   // 8) Exclusivité sous concurrence sur un verrou ORPHELIN (le cas qui a fait tomber la

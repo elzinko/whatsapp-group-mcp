@@ -73,11 +73,12 @@ export class AuthLock {
   // jitterMs : petit délai aléatoire avant de casser un orphelin, pour désynchroniser
   //            deux récupérations simultanées (injectable pour rendre les tests
   //            déterministes ; défaut = 0..8 ms aléatoire).
-  constructor(lockPath, { pid = process.pid, isAlive = isProcessAlive, jitterMs } = {}) {
+  constructor(lockPath, { pid = process.pid, isAlive = isProcessAlive, jitterMs, settleMs } = {}) {
     this.lockPath = lockPath;
     this.pid = pid;
     this.isAlive = isAlive;
-    this.jitterMs = jitterMs;
+    this.jitterMs = jitterMs; // délai avant cassage d'un orphelin (défaut 0..8 ms aléatoire)
+    this.settleMs = settleMs; // délai de vérif post-vol (défaut 12..30 ms aléatoire)
     this.held = false;
   }
 
@@ -90,10 +91,23 @@ export class AuthLock {
   // orphelin, deux process concurrents ne peuvent pas réussir le create tous les deux.
   acquire() {
     let reclaimedFrom = null;
-    for (let attempt = 0; attempt < 5; attempt++) {
+    for (let attempt = 0; attempt < 8; attempt++) {
       try {
         this._writeExclusive();
         this.held = true;
+        // Chemin de VOL (on vient de casser un orphelin) : le create O_EXCL empêche deux
+        // créations SIMULTANÉES, mais pas qu'un autre casseur supprime notre fichier frais
+        // et recrée le sien juste après (fenêtre lecture-morte → unlink). On tranche par
+        // « qui reste sur le disque après un court settle » : on attend, on relit, et si
+        // notre PID n'y est plus, on s'est fait voler → on ne tient pas, on reboucle
+        // (on relira le voleur vivant et on se retirera). Mitigation type proper-lockfile.
+        if (reclaimedFrom !== null) {
+          this._sleepSettle();
+          if (this._readPid() !== this.pid) {
+            this.held = false;
+            continue;
+          }
+        }
         return reclaimedFrom === null ? { acquired: true } : { acquired: true, reclaimedFrom };
       } catch (e) {
         if (e.code !== "EEXIST") throw e;
@@ -158,7 +172,19 @@ export class AuthLock {
 
   _sleepJitter() {
     const ms = Number.isFinite(this.jitterMs) ? this.jitterMs : Math.floor(Math.random() * 8);
-    if (ms <= 0) return;
+    this._sleepMs(ms);
+  }
+
+  // Temps de « settle » après un vol : doit dépasser la fenêtre jitter+cassage d'un
+  // concurrent, pour que le dernier écrivain soit stable quand on relit. Un peu aléatoire
+  // pour ne pas re-synchroniser deux settles.
+  _sleepSettle() {
+    const ms = Number.isFinite(this.settleMs) ? this.settleMs : 12 + Math.floor(Math.random() * 18);
+    this._sleepMs(ms);
+  }
+
+  _sleepMs(ms) {
+    if (!(ms > 0)) return;
     // Sommeil synchrone borné (Atomics.wait) : reste dans le chemin synchrone d'acquire.
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
   }
