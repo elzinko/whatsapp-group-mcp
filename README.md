@@ -152,6 +152,23 @@ permissions client < élicitation < **Touch ID**.
   donc un LLM ne peut pas se désarmer lui-même. Absence ou fichier illisible = **actif**
   (fail-secure vers le haut : l'incertitude ne désarme jamais).
 
+### Le repli sans élicitation — quand le plafond reste seul
+
+Un cas mérite d'être dit franchement, parce qu'il change la garantie. Si tu **désarmes**
+Touch ID (`strong-auth.json` à `false`) **et** que ton client MCP ne supporte pas
+l'élicitation, alors `grant_channel` retombe sur le **dialogue de permissions du client**.
+Ce dialogue est **cadré par le LLM**, pas rédigé par le serveur. La garantie centrale de
+l'[ADR-0002](docs/adr/0002-le-plafond-et-le-consentement.md) — *la question vient du
+serveur, la réponse ne passe jamais par le LLM* — **disparaît** dans ce repli. Il ne reste
+plus qu'**un seul contrôle** : le plafond `allowlist.json`, que seul l'humain édite.
+
+Ce n'est **pas un trou béant** : Touch ID est actif par défaut (fail-closed), donc ce cas
+n'arrive que si tu l'as toi-même désarmé, sur un client sans élicitation. Et pour savoir
+dans quel régime tu te trouves, `whatsapp_status` te le dit désormais **canal par canal** :
+chaque grant indique s'il a été **confirmé par un humain** (élicitation ou Touch ID) ou
+**auto-accordé** faute d'élicitation. Plus d'ambiguïté sur la façon dont un accès a été
+obtenu.
+
 ## Choisir les groupes — depuis ton LLM
 
 C'est l'usage normal. Une fois le serveur branché, en conversation :

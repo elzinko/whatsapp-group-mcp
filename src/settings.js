@@ -41,6 +41,7 @@ export class Settings {
           scope: SCOPE_READ,
           subject: g.subject || null,
           grantedAt: g.grantedAt || null,
+          via: g.via ?? null,
         });
       }
     } catch {
@@ -72,12 +73,13 @@ export class Settings {
 
   // Accorde (ou rafraîchit) un grant de LECTURE. Le `subject` doit toujours provenir
   // de Baileys, jamais d'un argument fourni par l'appelant (ADR-0001).
-  grant(jid, subject) {
+  grant(jid, subject, via) {
     const existing = this.grants.get(jid);
     this.grants.set(jid, {
       scope: SCOPE_READ,
       subject: subject || null,
       grantedAt: existing?.grantedAt || new Date().toISOString(),
+      via: via ?? null,
     });
     this.save();
     return this.grants.get(jid);
