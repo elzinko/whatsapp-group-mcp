@@ -181,6 +181,28 @@ dans `./data/<jid>.jsonl` (un message par ligne), **un fichier par canal** :
 Le dossier `data/` contient le **contenu privé** de tes conversations : il est ignoré par
 git et ne doit pas être partagé. Révoquer un canal ne supprime pas son archive.
 
+### Hygiène locale (données au repos)
+
+`auth/` (identifiants de session) et `data/` (messages privés) sont **en clair sur le
+disque** — décision assumée (ADR-0002 : pas de crypto applicative en local, la clé vivrait
+à côté des données). La protection au repos repose donc sur trois mesures simples :
+
+1. **Permissions restreintes** — le serveur pose `700`/`600` sur `auth/`, `data/`,
+   `settings.json` et `allowlist.json` **au moment où il les crée** : personne d'autre que ton
+   compte ne les lit alors. Réserve à connaître : le code ne **resserre pas l'existant** — un
+   fichier que tu aurais créé **à la main** avant (un `allowlist.json` édité, une archive
+   ancienne) garde ses permissions d'origine (souvent `644`, lisible par les autres comptes).
+   Si tu en as, applique-les une fois :
+   ```bash
+   chmod 700 auth data 2>/dev/null; chmod 600 settings.json allowlist.json 2>/dev/null
+   ```
+2. **Chiffrement du disque (FileVault)** — garde-le **activé** (Réglages macOS → Confidentialité
+   et sécurité → FileVault). C'est ce qui protège `auth/` et `data/` si la machine est perdue
+   ou volée. Vérifier : `fdesetup status` doit répondre « FileVault is On ».
+3. **Jamais dans un dossier synchronisé** — ne place pas ce projet dans iCloud Drive, Dropbox,
+   OneDrive ou équivalent : tes identifiants WhatsApp et tes messages privés partiraient dans
+   le cloud du service de synchro. Garde-le dans un dossier local (ex. `~/git/...`).
+
 ## Brancher à Claude Desktop / Cowork
 
 > 🩺 **Le plus simple (macOS) :** `npm run doctor` diagnostique le branchement (node, chemin
