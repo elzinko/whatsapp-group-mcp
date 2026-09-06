@@ -197,6 +197,28 @@ dans `./data/<jid>.jsonl` (un message par ligne), **un fichier par canal** :
 Le dossier `data/` contient le **contenu privé** de tes conversations : il est ignoré par
 git et ne doit pas être partagé. Révoquer un canal ne supprime pas son archive.
 
+### Hygiène locale (données au repos)
+
+`auth/` (identifiants de session) et `data/` (messages privés) sont **en clair sur le
+disque** — décision assumée (ADR-0002 : pas de crypto applicative en local, la clé vivrait
+à côté des données). La protection au repos repose donc sur trois mesures simples :
+
+1. **Permissions restreintes** — le serveur pose `700`/`600` sur `auth/`, `data/`,
+   `settings.json` et `allowlist.json` **au moment où il les crée** : personne d'autre que ton
+   compte ne les lit alors. Réserve à connaître : le code ne **resserre pas l'existant** — un
+   fichier que tu aurais créé **à la main** avant (un `allowlist.json` édité, une archive
+   ancienne) garde ses permissions d'origine (souvent `644`, lisible par les autres comptes).
+   Si tu en as, applique-les une fois :
+   ```bash
+   chmod 700 auth data 2>/dev/null; chmod 600 settings.json allowlist.json 2>/dev/null
+   ```
+2. **Chiffrement du disque (FileVault)** — garde-le **activé** (Réglages macOS → Confidentialité
+   et sécurité → FileVault). C'est ce qui protège `auth/` et `data/` si la machine est perdue
+   ou volée. Vérifier : `fdesetup status` doit répondre « FileVault is On ».
+3. **Jamais dans un dossier synchronisé** — ne place pas ce projet dans iCloud Drive, Dropbox,
+   OneDrive ou équivalent : tes identifiants WhatsApp et tes messages privés partiraient dans
+   le cloud du service de synchro. Garde-le dans un dossier local (ex. `~/git/...`).
+
 ## Brancher à Claude Desktop / Cowork
 
 > 🩺 **Le plus simple (macOS) :** `npm run doctor` diagnostique le branchement (node, chemin
@@ -238,10 +260,14 @@ variable d'environnement n'est nécessaire : le choix des canaux se fait en conv
 | `list_groups` | Les groupes **du plafond** (id, nom, déjà autorisé ou non) + le nombre de groupes masqués. Aucun message. |
 | `grant_channel` | Autorise **la lecture** d'un groupe, de façon persistante. |
 | `revoke_channel` | Retire l'autorisation d'un groupe. |
-| `get_recent_messages` | Messages récents d'**un** canal autorisé (`channel`, `limit`). |
+| `get_recent_messages` | Messages récents d'**un** canal autorisé (`channel`, `limit`). Chaque message renvoie `id`, `from`, `sender`, `fromMe`, `text`, `at`. |
 
 Il n'y a **pas** d'outil d'envoi. Pour analyser plusieurs canaux, le LLM appelle
 `get_recent_messages` une fois par canal.
+
+Le champ `id` est l'identifiant WhatsApp natif du message. Il est **stable**, donc un
+consommateur qui rejoue la lecture (ingestion) peut dédoublonner dessus sans hachage
+maison. C'est un id technique, pas du contenu : aucune donnée sensible en plus.
 
 ## Configuration (`.env`)
 
@@ -285,6 +311,9 @@ npm run test:mcp  # couche MCP seule, sans appairage
 - [ADR-0001 — Modèle d'accès aux canaux](docs/adr/0001-modele-d-acces-aux-canaux.md) :
   pourquoi les autorisations plutôt qu'un groupe figé, pourquoi la lecture seule, et le
   contrat à respecter si l'écriture revient un jour.
+- [ADR-0005 — Le serveur ne configure jamais le client](docs/adr/0005-le-serveur-ne-configure-pas-le-client.md) :
+  pourquoi aucun outil MCP n'écrit la config d'un client (Desktop/Code) — la config passe par
+  un installer humain, pas par le LLM (frontière read-only, ADR-0001).
 
 ## Licence
 
