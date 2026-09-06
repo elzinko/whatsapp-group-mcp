@@ -6,7 +6,7 @@ priority: P1
 version:
 epic: "20260902223310355"
 status: todo
-ready:
+ready: 2026-09-05
 pr:
 created: 2026-09-03
 ---

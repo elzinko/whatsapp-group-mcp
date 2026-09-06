@@ -26,6 +26,10 @@ allowlist-*.json
 strong-auth.json
 strong-auth-*.json
 
+# Registre des sessions de lecture (fiche 20260902223310499) : jetons -> jamais commité
+sessions/
+sessions-*/
+
 # Logs
 *.log
 
