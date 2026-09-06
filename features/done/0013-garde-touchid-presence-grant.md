@@ -24,7 +24,7 @@ Le projet voisin `google-mcp-multi-account` a **livré** (2026-07-19) un garde b
 Ce que ça prouve : **un humain était physiquement devant le Mac** au moment de l'action —
 un LLM ne peut pas fabriquer ce verdict.
 
-whatsapp a la fiche du cran **au-dessus** ([0007](0007-elicitation-signee-touch-id.md),
+whatsapp a la fiche du cran **au-dessus** ([0007](../0007-elicitation-signee-touch-id.md),
 signature Secure Enclave liée à la question) mais **pas** ce cran v1. Or il tombe
 particulièrement bien ici : un garde Touch ID sur `grant_channel` est **imposé côté serveur**,
 donc **indépendant de la capability du client** — il **fermerait le trou de la fiche 0008**

@@ -5,7 +5,7 @@
 **Décideurs :** Thomas (propriétaire du projet et du compte WhatsApp)
 **Amende :** ADR-0002 (les sessions s'ajoutent au plafond et au consentement ; le reste de
 0002 et 0003 survit intact) — se compose avec l'ADR-0003 (Touch ID)
-**Feature :** [20260902223310499](../../features/20260902223310499_droits-par-session-jeton-porte.md)
+**Feature :** [20260902223310499](../../features/done/20260902223310499_droits-par-session-jeton-porte.md)
 
 ## Contexte
 

@@ -5,9 +5,9 @@ type: chore
 priority: P2
 version:
 epic:
-status: todo
-ready:
-pr:
+status: shipped
+ready: 2026-09-05
+pr: "#28"
 created: 2026-07-18
 ---
 
