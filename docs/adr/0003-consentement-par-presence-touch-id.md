@@ -209,18 +209,26 @@ composé.*
 - Confirmation *in situ* depuis le process serveur MCP (et sous Desktop) au test E2E de la
   feature — réserve mineure du relevé 0013.
 
+## Statut de livraison
+
+> **Livré le 2026-07-23** (fiche [0013](../../features/done/0013-garde-touchid-presence-grant.md),
+> commit `e096a7a`) — toutes les actions ci-dessous sont en place dans le code et les tests
+> (`src/consent.js`, `src/strongauth.js`, `src/touchid.js`, câblage `index.js`, suite
+> `test/consent-strongauth.js`). Cases cochées lors de la revue backlog du 2026-09-06 : le
+> document était resté « à faire » alors que l'implémentation était livrée.
+
 ## Actions
 
-1. [ ] `src/strongauth.js` — `readStrongAuthEnabled(file)` : absent/corrompu = `true` (ON),
+1. [x] `src/strongauth.js` — `readStrongAuthEnabled(file)` : absent/corrompu = `true` (ON),
        `{enabled:false}` = `false`. Aucune écriture, aucun bootstrap.
-2. [ ] `src/config.js` — `strongAuthFile` + `WHATSAPP_STRONG_AUTH_FILE` (à côté d'`allowlistFile`).
-3. [ ] `src/consent.js` — `buildGrantConsent({ isStrongAuthEnabled, checkPresence,
+2. [x] `src/config.js` — `strongAuthFile` + `WHATSAPP_STRONG_AUTH_FILE` (à côté d'`allowlistFile`).
+3. [x] `src/consent.js` — `buildGrantConsent({ isStrongAuthEnabled, checkPresence,
        elicitationConsent, log })` ; `buildConfirmGrant` inchangé.
-4. [ ] `src/index.js` — composer `wa.confirmGrant` via `buildGrantConsent` ; `grantConsent`
+4. [x] `src/index.js` — composer `wa.confirmGrant` via `buildGrantConsent` ; `grantConsent`
        de `whatsapp_status` reflète Touch ID quand le drapeau est ON.
-5. [ ] `.gitignore` — `strong-auth.json`.
-6. [ ] `test/consent-strongauth.js` — routage ON→Touch ID / OFF→élicitation, fail-closed
+5. [x] `.gitignore` — `strong-auth.json`.
+6. [x] `test/consent-strongauth.js` — routage ON→Touch ID / OFF→élicitation, fail-closed
        (checkPresence non-ok → refus), lecture du drapeau (absent/`false`/corrompu), le tout
        avec `checkPresence` et `isStrongAuthEnabled` **injectés** (zéro biométrie en test).
        Biométrie réelle = relevé humain (E2E).
-7. [ ] README + `.env.example` — le drapeau, son défaut ON, comment le désarmer à la main.
+7. [x] README + `.env.example` — le drapeau, son défaut ON, comment le désarmer à la main.
