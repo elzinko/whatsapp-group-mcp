@@ -1,8 +1,8 @@
 ---
 id: 0008
-title: Repli sans élicitation — trancher fail-open ou fail-closed (et le documenter)
-type: feature
-priority: P1
+title: Documenter le repli sans élicitation (fail-open refermé par défaut par l'ADR-0003)
+type: chore
+priority: P2
 version:
 epic:
 status: todo
@@ -10,6 +10,16 @@ ready:
 pr:
 created: 2026-07-21
 ---
+
+> **Mise à jour 2026-09-06 (revue backlog).** La question **de sécurité est tranchée**
+> depuis l'[ADR-0003](../docs/adr/0003-consentement-par-presence-touch-id.md) : la garde
+> Touch ID est **ON par défaut**, imposée côté serveur, donc **indépendante du client**.
+> Sur un client sans élicitation, le grant ne retombe donc plus en *fail-open* silencieux
+> tant que le drapeau `strong-auth.json` est armé (défaut) — il exige une présence physique.
+> **Le trou de sécurité de cette fiche est fermé par défaut.** Ce qui reste est de la
+> **documentation** : le README et l'article ne décrivent pas encore explicitement ce repli,
+> et `whatsapp_status` doit dire sans ambiguïté comment un grant a été confirmé. D'où la
+> bascule **`feature P1` → `chore P2`**.
 
 ## Contexte / Problème
 
@@ -55,12 +65,17 @@ de sécurité n°1 de l'usage quotidien.
 
 ## Critères d'acceptation
 
-- [ ] Le comportement est décidé et **écrit dans l'ADR-0002** (amendement daté)
+- [x] Le comportement est décidé et **écrit dans un ADR** — l'ADR-0003 (garde Touch ID)
+      tranche : fail-closed par présence physique, ON par défaut ; note d'amendement datée
+      dans l'ADR-0002
 - [ ] `whatsapp_status` dit sans ambiguïté si les grants de la session ont été confirmés
-      par un humain ou auto-accordés
+      par un humain ou auto-accordés *(reste à faire : `grantConsent` expose le mode de
+      consentement, pas encore l'historique « humain vs auto » par grant)*
 - [ ] Le README et l'article ne laissent plus croire à une garantie inconditionnelle
-- [ ] Un test couvre le chemin retenu (le repli existant est déjà couvert par
-      `test/elicitation.js`, cas « repli sans capability »)
+      *(reste à faire : décrire explicitement le cas « strong-auth OFF + client sans
+      élicitation » où le plafond est le seul contrôle)*
+- [x] Un test couvre le chemin retenu (`test/consent-strongauth.js` : refus si la présence
+      n'est pas prouvée ; `test/elicitation.js` : repli sans capability)
 
 ## Notes
 
