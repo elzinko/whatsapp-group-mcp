@@ -187,9 +187,15 @@ git et ne doit pas être partagé. Révoquer un canal ne supprime pas son archiv
 disque** — décision assumée (ADR-0002 : pas de crypto applicative en local, la clé vivrait
 à côté des données). La protection au repos repose donc sur trois mesures simples :
 
-1. **Permissions restreintes** — le serveur crée et referme `auth/`, `data/`, `settings.json`
-   et `allowlist.json` en `700`/`600` (personne d'autre que ton compte ne les lit). C'est fait
-   par le code, rien à configurer.
+1. **Permissions restreintes** — le serveur pose `700`/`600` sur `auth/`, `data/`,
+   `settings.json` et `allowlist.json` **au moment où il les crée** : personne d'autre que ton
+   compte ne les lit alors. Réserve à connaître : le code ne **resserre pas l'existant** — un
+   fichier que tu aurais créé **à la main** avant (un `allowlist.json` édité, une archive
+   ancienne) garde ses permissions d'origine (souvent `644`, lisible par les autres comptes).
+   Si tu en as, applique-les une fois :
+   ```bash
+   chmod 700 auth data 2>/dev/null; chmod 600 settings.json allowlist.json 2>/dev/null
+   ```
 2. **Chiffrement du disque (FileVault)** — garde-le **activé** (Réglages macOS → Confidentialité
    et sécurité → FileVault). C'est ce qui protège `auth/` et `data/` si la machine est perdue
    ou volée. Vérifier : `fdesetup status` doit répondre « FileVault is On ».
