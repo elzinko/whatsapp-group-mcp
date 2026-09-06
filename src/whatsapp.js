@@ -197,15 +197,18 @@ export class WhatsAppClient {
     }
   }
 
-  async start() {
-    // Le verrou est pris AVANT le premier contact avec auth/ (useMultiFileAuthState
-    // juste en dessous). Le perdant n'ouvre rien : il sort proprement avec un message
-    // qui dit quoi faire, sans jamais toucher au dossier auth/ (fiche 0009).
+  // Acquiert le verrou auth/ (synchrone). Lève une Error `{ code: "ELOCKED" }` si un autre
+  // process VIVANT le tient. L'appelant DOIT alors sortir SANS ouvrir le transport MCP :
+  // sinon le perdant resterait un serveur MCP zombie, WhatsApp indisponible en permanence
+  // (revue Codex #27). Réentrant pour le même PID (redémarrage/reconnexion interne).
+  acquireLock() {
     const lockResult = this.authLock.acquire();
     if (!lockResult.acquired) {
       const message = AuthLock.describeConflict(lockResult.heldByPid, this.config.authLockFile);
       log(message);
-      throw new Error(message);
+      const err = new Error(message);
+      err.code = "ELOCKED";
+      throw err;
     }
     if (lockResult.reclaimedFrom) {
       log(
@@ -213,6 +216,16 @@ export class WhatsAppClient {
       );
     }
     this._installLockReleaseOnExit();
+    return lockResult;
+  }
+
+  async start() {
+    // Le verrou est pris AVANT le premier contact avec auth/ (useMultiFileAuthState
+    // juste en dessous). Le perdant n'ouvre rien : il sort proprement avec un message
+    // qui dit quoi faire, sans jamais toucher au dossier auth/ (fiche 0009). Idempotent :
+    // main() l'a en général déjà pris (même PID → réentrant) pour pouvoir sortir avant
+    // d'ouvrir le transport MCP.
+    this.acquireLock();
 
     const { state, saveCreds } = await useMultiFileAuthState(this.config.authDir);
     // Baileys crée auth/ avec l'umask du process (souvent 0755, lisible par les autres

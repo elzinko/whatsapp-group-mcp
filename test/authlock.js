@@ -150,6 +150,34 @@ try {
     "les perdants voient un détenteur vivant (heldByPid = le gagnant), pas une acquisition",
     orphanResults.filter((r) => !r.acquired).every((r) => r.heldByPid === orphanWinners[0]?.pid)
   );
+
+  // 9) Propagation du conflit AU DÉMARRAGE DU SERVEUR (revue Codex #27) : un 2e
+  //    `node src/index.js` sur un verrou tenu par un PID vivant doit SORTIR (exit != 0),
+  //    pas rester serveur MCP zombie avec WhatsApp indisponible. On tient le verrou avec
+  //    NOTRE propre PID (vivant), donc c'est déterministe — le serveur enfant ne l'ouvre pas.
+  const serverLock = path.join(tmp, "server-conflict.lock");
+  fs.writeFileSync(serverLock, String(process.pid)); // détenteur vivant = ce process de test
+  const serverEntry = path.join(__dirname, "..", "src", "index.js");
+  const child = spawnSync(process.execPath, [serverEntry], {
+    encoding: "utf8",
+    timeout: 20000,
+    env: {
+      ...process.env,
+      WHATSAPP_AUTH_LOCK: serverLock,
+      WHATSAPP_AUTH_DIR: path.join(tmp, "auth9"),
+      WHATSAPP_SETTINGS_FILE: path.join(tmp, "settings9.json"),
+      WHATSAPP_ALLOWLIST_FILE: path.join(tmp, "allowlist9.json"),
+      WHATSAPP_PERSIST: "false",
+    },
+  });
+  check(
+    "un 2e serveur sur un verrou tenu par un PID vivant SORT (exit != 0, pas de zombie)",
+    child.status !== 0 && child.status != null
+  );
+  check(
+    "le 2e serveur n'a pas altéré le verrou du détenteur vivant",
+    fs.readFileSync(serverLock, "utf8").trim() === String(process.pid)
+  );
 } catch (e) {
   console.error("Erreur test:", e);
   failed = true;
