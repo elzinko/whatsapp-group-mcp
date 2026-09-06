@@ -20,7 +20,7 @@ import { Allowlist } from "./allowlist.js";
 import { buildConfirmGrant, buildGrantConsent, buildSessionConsent } from "./consent.js";
 import { readStrongAuthEnabled } from "./strongauth.js";
 import { checkPresence } from "./touchid.js";
-import { WhatsAppClient, log } from "./whatsapp.js";
+import { WhatsAppClient, log, toRecentMessage } from "./whatsapp.js";
 import { SessionRegistry } from "./sessions.js";
 
 const settings = new Settings(config.settingsFile).load();
@@ -398,13 +398,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
             messages.length === 0
               ? "Aucun message en mémoire pour ce canal. Le tampon se remplit avec l'historique reçu à la connexion et les nouveaux messages."
               : undefined,
-          messages: messages.map((m) => ({
-            from: m.pushName || m.sender,
-            sender: m.sender,
-            fromMe: m.fromMe,
-            text: m.text,
-            at: new Date((m.timestamp || 0) * 1000).toISOString(),
-          })),
+          messages: messages.map(toRecentMessage),
         });
       }
 
@@ -450,8 +444,22 @@ const sessionConsent = buildSessionConsent({
 });
 
 async function main() {
+  // 0) Verrou auth/ AVANT tout (fiche 0009). Si un autre process vivant le tient, on SORT
+  //    ici — sans ouvrir le transport MCP. Sinon le perdant resterait un serveur MCP zombie,
+  //    WhatsApp indisponible en permanence (revue Codex #27). L'acquisition est synchrone.
+  try {
+    wa.acquireLock();
+  } catch (e) {
+    if (e?.code === "ELOCKED") {
+      log(e.message);
+      process.exit(1); // perdant du verrou : ne pas servir en MCP
+    }
+    throw e;
+  }
+
   // 1) Démarre WhatsApp (affiche un QR sur stderr si pas encore appairé).
   //    On n'attend pas la connexion : le serveur MCP doit répondre tout de suite.
+  //    start() re-prend le verrou (réentrant, même PID) — inoffensif.
   wa.start().catch((e) => log("Echec démarrage WhatsApp:", e?.message));
 
   // 2) Démarre le transport MCP sur stdio.

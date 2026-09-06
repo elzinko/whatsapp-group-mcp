@@ -91,6 +91,22 @@ aussi arrêter sans redémarrer :
 npm run stop
 ```
 
+`npm run stop` est un geste **volontaire** : il coupe les process déjà lancés. Il ne
+protège pas contre une **course** — deux `npm start` déclenchés en même temps peuvent
+tous les deux passer le `stop` puis ouvrir `auth/`. C'est pour ça qu'en plus, un **verrou
+OS automatique** (fichier PID exclusif, à côté de `auth/`) est pris juste avant
+l'ouverture de la session : le premier process gagne, le second **n'ouvre rien** et
+s'arrête avec un message qui dit quoi faire :
+
+```
+Une autre session utilise déjà auth/ (PID xxxx). Coupe-la avec `npm run stop`, ou attends
+qu'elle libère le verrou.
+```
+
+Si le détenteur du verrou plante (`kill -9`, crash), le verrou est **récupéré
+automatiquement** au prochain démarrage — pas besoin de supprimer un fichier à la main.
+Voir `src/authlock.js` (fiche `features/0009-verrou-exclusif-auth.md`).
+
 ## Le plafond : `allowlist.json` — la liste que seul l'humain édite
 
 Avant tout grant, il y a **le plafond** ([ADR-0002](docs/adr/0002-le-plafond-et-le-consentement.md)) :
@@ -214,6 +230,28 @@ dans `./data/<jid>.jsonl` (un message par ligne), **un fichier par canal** :
 Le dossier `data/` contient le **contenu privé** de tes conversations : il est ignoré par
 git et ne doit pas être partagé. Révoquer un canal ne supprime pas son archive.
 
+### Hygiène locale (données au repos)
+
+`auth/` (identifiants de session) et `data/` (messages privés) sont **en clair sur le
+disque** — décision assumée (ADR-0002 : pas de crypto applicative en local, la clé vivrait
+à côté des données). La protection au repos repose donc sur trois mesures simples :
+
+1. **Permissions restreintes** — le serveur pose `700`/`600` sur `auth/`, `data/`,
+   `settings.json` et `allowlist.json` **au moment où il les crée** : personne d'autre que ton
+   compte ne les lit alors. Réserve à connaître : le code ne **resserre pas l'existant** — un
+   fichier que tu aurais créé **à la main** avant (un `allowlist.json` édité, une archive
+   ancienne) garde ses permissions d'origine (souvent `644`, lisible par les autres comptes).
+   Si tu en as, applique-les une fois :
+   ```bash
+   chmod 700 auth data 2>/dev/null; chmod 600 settings.json allowlist.json 2>/dev/null
+   ```
+2. **Chiffrement du disque (FileVault)** — garde-le **activé** (Réglages macOS → Confidentialité
+   et sécurité → FileVault). C'est ce qui protège `auth/` et `data/` si la machine est perdue
+   ou volée. Vérifier : `fdesetup status` doit répondre « FileVault is On ».
+3. **Jamais dans un dossier synchronisé** — ne place pas ce projet dans iCloud Drive, Dropbox,
+   OneDrive ou équivalent : tes identifiants WhatsApp et tes messages privés partiraient dans
+   le cloud du service de synchro. Garde-le dans un dossier local (ex. `~/git/...`).
+
 ## Brancher à Claude Desktop / Cowork
 
 > 🩺 **Le plus simple (macOS) :** `npm run doctor` diagnostique le branchement (node, chemin
@@ -257,11 +295,15 @@ variable d'environnement n'est nécessaire : le choix des canaux se fait en conv
 | `revoke_channel` | Retire l'autorisation d'un groupe. |
 | `session_open` | Ouvre une session de lecture (`channels[]`, `ttlMs?`) sur des groupes **déjà autorisés** ⊆ grants ∩ plafond, sous consentement. Rend `{ session, expiresAt, channels }`. |
 | `session_close` | Ferme une session (révoque le jeton présenté). Réduire est toujours permis, sans cérémonie. |
-| `get_recent_messages` | Messages récents d'**un** canal, **dans le périmètre d'une session valide** (`session` requis, `channel`, `limit`). |
+| `get_recent_messages` | Messages récents d'**un** canal, **dans le périmètre d'une session valide** (`session` requis, `channel`, `limit`). Chaque message renvoie `id`, `from`, `sender`, `fromMe`, `text`, `at`. |
 
 Il n'y a **pas** d'outil d'envoi. Pour analyser plusieurs canaux, le LLM appelle
 `get_recent_messages` une fois par canal (dans la même session s'ils y sont tous, sinon
 une session par canal).
+
+Le champ `id` est l'identifiant WhatsApp natif du message. Il est **stable**, donc un
+consommateur qui rejoue la lecture (ingestion) peut dédoublonner dessus sans hachage
+maison. C'est un id technique, pas du contenu : aucune donnée sensible en plus.
 
 ## Configuration (`.env`)
 
@@ -275,6 +317,7 @@ Tout est optionnel. Voir [`.env.example`](.env.example).
 | `WHATSAPP_DEVICE_NAME` | `whatsapp-group-mcp` | Nom de l'appareil dans WhatsApp → Appareils liés/connectés. **Figé à l'appairage** : le changer exige de déconnecter l'appareil (téléphone), supprimer `./auth`, et rescanner le QR. |
 | `WHATSAPP_MAX_MESSAGES` | `500` | Taille du tampon **mémoire**, **par canal**. |
 | `WHATSAPP_AUTH_DIR` | `./auth` | Identifiants de session. **Effacé en cas de déconnexion.** |
+| `WHATSAPP_AUTH_LOCK` | `<WHATSAPP_AUTH_DIR>.lock` | Fichier du verrou OS exclusif anti-collision (voir « Un seul process Baileys à la fois »). |
 | `WHATSAPP_DATA_DIR` | `./data` | Archive des messages. |
 | `WHATSAPP_SETTINGS_FILE` | `./settings.json` | Canaux autorisés (grants). |
 | `WHATSAPP_ALLOWLIST_FILE` | `./allowlist.json` | Le **plafond** : édité à la main uniquement, borne grants, ingestion, sessions et lecture. |
@@ -316,6 +359,9 @@ npm run test:sessions # registre de sessions + consentement + protocole MCP rée
 - [ADR-0004 — Droits par session](docs/adr/0004-droits-par-session.md) : un jeton porté
   dans chaque appel, ouvert par Touch ID/élicitation, périmètre ⊆ grants ∩ plafond, TTL et
   révocation — voir aussi la section [Sessions](#sessions--un-jeton-par-conversation).
+- [ADR-0005 — Le serveur ne configure jamais le client](docs/adr/0005-le-serveur-ne-configure-pas-le-client.md) :
+  pourquoi aucun outil MCP n'écrit la config d'un client (Desktop/Code) — la config passe par
+  un installer humain, pas par le LLM (frontière read-only, ADR-0001).
 
 ## Licence
 
