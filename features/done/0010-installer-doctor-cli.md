@@ -65,7 +65,7 @@ google-mcp-multi-account, `bin/gwsa`).
   macOS d'abord.
 - Absorbe proprement l'envie « que ça se configure tout seul » (Q du 2026-07-22) **sans**
   donner au serveur un pouvoir d'écriture sur la config client — la frontière est tenue
-  par [0012](../0012-adr-serveur-ne-configure-pas-le-client.md) et tracée dans
+  par [0012](0012-adr-serveur-ne-configure-pas-le-client.md) et tracée dans
   [ADR-0005](../../docs/adr/0005-le-serveur-ne-configure-pas-le-client.md) : c'est la
   **contrainte de conception** de cet installer (la config passe par cette CLI humaine,
   jamais par un outil MCP).

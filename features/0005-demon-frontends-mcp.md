@@ -82,5 +82,5 @@ plus que ce que fait le voisin, à concevoir et non à copier.
 2026-09-03 : **8 serveurs** `src/index.js` tournaient en parallèle sur le poste, un seul
 répondait — le besoin « multi-simultané réel » posé en condition ci-dessus est désormais
 constaté. Le registre de sessions (fiche
-[20260902223310499](20260902223310499_droits-par-session-jeton-porte.md)) est conçu pour
+[20260902223310499](done/20260902223310499_droits-par-session-jeton-porte.md)) est conçu pour
 migrer tel quel dans le démon.

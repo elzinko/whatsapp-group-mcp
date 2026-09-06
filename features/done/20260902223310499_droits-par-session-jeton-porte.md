@@ -5,9 +5,9 @@ type: feature
 priority: P1
 version:
 epic: "20260902223310355"
-status: todo
+status: shipped
 ready: 2026-09-05
-pr:
+pr: "#25"
 created: 2026-09-03
 ---
 
@@ -19,7 +19,7 @@ serveur rend un jeton que le LLM présente ensuite à chaque lecture. Sans jeton
 lit. Deux conversations sur la même connexion Desktop/Cowork ne se voient plus.
 
 **Si tu arrives frais.** Vocabulaire (plafond, grant, session, Cowork) dans l'épic parent
-[20260902223310355](20260902223310355_acces-whatsapp-par-session.md).
+[20260902223310355](../20260902223310355_acces-whatsapp-par-session.md).
 
 ## Contexte / Problème
 
@@ -67,7 +67,7 @@ lit. Deux conversations sur la même connexion Desktop/Cowork ne se voient plus.
   Client sans élicitation → **fail-closed** (pas de repli « permissions client » : une
   session est un périmètre, pas un grant déjà plafonné). Ce choix tranche 0008 pour
   `session_open` seulement ; `grant_channel` reste à trancher dans 0008.
-- Le v2 signé ([0007](0007-elicitation-signee-touch-id.md)) lierait le jeton au payload
+- Le v2 signé ([0007](../0007-elicitation-signee-touch-id.md)) lierait le jeton au payload
   exact ; optionnel tant que le serveur est en lecture seule.
 
 ### Compatibilité
@@ -109,7 +109,7 @@ npm run test:elicitation    # modèle : protocole réel Server/Client en mémoir
 ```
 
 À la main : ajouter un « Test E — session » à
-[docs/tests/validation-manuelle-desktop.md](../docs/tests/validation-manuelle-desktop.md)
+[docs/tests/validation-manuelle-desktop.md](../../docs/tests/validation-manuelle-desktop.md)
 (prompts : ouvrir une session sur un groupe, lire ce groupe, tenter un autre groupe → refus,
 fermer la session → refus).
 

@@ -45,7 +45,7 @@ de sécurité (verdict fiche 0007). À faire en dernier, après le démon.
 ## Critères d'acceptation (esquisse)
 
 - [ ] Installable depuis Cowork et depuis Code sans éditer de JSON à la main.
-- [ ] Ne contourne pas [0012](0012-adr-serveur-ne-configure-pas-le-client.md) : le plugin
+- [ ] Ne contourne pas [0012](done/0012-adr-serveur-ne-configure-pas-le-client.md) : le plugin
       **déclare**, il n'écrit pas la config à la place de l'humain (l'installation d'un plugin
       est un geste humain dans l'interface).
 - [ ] Aucune promesse de sécurité dans sa description.

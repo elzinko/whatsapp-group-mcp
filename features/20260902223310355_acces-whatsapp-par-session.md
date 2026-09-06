@@ -98,7 +98,7 @@ Séquence proposée (chaque étape est une fiche) :
    (`npm run install:client`, Desktop quitté, serveurs Code arrêtés), lancer une tâche
    Cowork, relever `grantConsent`, déclencher un grant et constater la boîte Touch ID.
 2. **Droits par session** —
-   [20260902223310499](20260902223310499_droits-par-session-jeton-porte.md) : jeton porté,
+   [20260902223310499](done/20260902223310499_droits-par-session-jeton-porte.md) : jeton porté,
    `session_open` sous Touch ID, TTL, révocation, `whatsapp_status` par session. Marche dès
    un client à la fois ; utile immédiatement sous Desktop/Cowork (plusieurs conversations
    sur une connexion).
@@ -219,7 +219,7 @@ des **propositions** ; les points à trancher sont listés à la fin.
 - Constat 2026-09-03 : `grantConsent` = « Touch ID » depuis cette session Code ; serveur
   connecté, 2 canaux autorisés. Cowork : à relever (fiche 0001).
 - Le serveur ne configure jamais le client
-  ([0012](0012-adr-serveur-ne-configure-pas-le-client.md)) : le branchement Desktop reste
+  ([0012](done/0012-adr-serveur-ne-configure-pas-le-client.md)) : le branchement Desktop reste
   `npm run install:client`, lancé par l'humain, Desktop quitté.
 - Dépendance externe : `google-mcp-multi-account` — accès constaté le 2026-09-03
   (ADR-0007, `gateway/sessions.py`, `gateway/mcp_server.py` paramètre `session`,

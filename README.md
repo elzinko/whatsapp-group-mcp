@@ -105,7 +105,7 @@ qu'elle libère le verrou.
 
 Si le détenteur du verrou plante (`kill -9`, crash), le verrou est **récupéré
 automatiquement** au prochain démarrage — pas besoin de supprimer un fichier à la main.
-Voir `src/authlock.js` (fiche `features/0009-verrou-exclusif-auth.md`).
+Voir `src/authlock.js` (fiche `features/done/0009-verrou-exclusif-auth.md`).
 
 ## Le plafond : `allowlist.json` — la liste que seul l'humain édite
 

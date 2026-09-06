@@ -27,7 +27,7 @@ juge du verdict. La v2 implémente **cette fiche** côté `gwsa` (payload canoni
 Secure Enclave, reçus) — voir § Référence d'implémentation. Ici, le v1 est déjà porté
 (fiche [0013](done/0013-garde-touchid-presence-grant.md)) ; le v2 signé reste à adapter.
 
-> **Ce même presence check, porté ici, est la fiche [0013](0013-garde-touchid-presence-grant.md)
+> **Ce même presence check, porté ici, est la fiche [0013](done/0013-garde-touchid-presence-grant.md)
 > (le « v1 »).** Cette fiche-ci est le « v2 signé ». Ordre pressenti : éprouver d'abord le
 > v1 (0013) ; ce v2 ne se justifie que si le presence check se révèle insuffisant — pour un
 > serveur read-only dont le pire cas est « tu lis tes propres messages », c'est à débattre.

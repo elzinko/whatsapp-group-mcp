@@ -5,9 +5,9 @@ type: chore
 priority: P2
 version:
 epic:
-status: todo
-ready:
-pr:
+status: shipped
+ready: 2026-09-05
+pr: "#26"
 created: 2026-07-22
 ---
 
@@ -42,7 +42,7 @@ ADR existants) :
 - **Conséquences** : l'ergonomie de branchement passe par une CLI humaine, pas par le LLM ;
   cohérent avec « le plafond n'est éditable qu'à la main » (ADR-0002).
 - **Le jour où on voudrait revenir dessus** : ce que ça exigerait (au minimum une auth forte
-  liant le consentement à l'écriture exacte — cf. Touch ID signé, [0007](0007-elicitation-signee-touch-id.md)).
+  liant le consentement à l'écriture exacte — cf. Touch ID signé, [0007](../0007-elicitation-signee-touch-id.md)).
 
 ## Critères d'acceptation
 

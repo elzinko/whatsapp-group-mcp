@@ -4,7 +4,7 @@
 **Date :** 2026-07-23
 **Décideurs :** Thomas (propriétaire du projet et du compte WhatsApp)
 **Amende :** ADR-0002 (ajoute un cran au consentement ; le plafond et le reste de 0002 survivent intacts)
-**Feature :** [0013](../../features/0013-garde-touchid-presence-grant.md) — v1 presence check (0007 = v2 signé, différé)
+**Feature :** [0013](../../features/done/0013-garde-touchid-presence-grant.md) — v1 presence check (0007 = v2 signé, différé)
 
 ## Contexte
 

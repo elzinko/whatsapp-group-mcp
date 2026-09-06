@@ -4,7 +4,7 @@
 **Date :** 2026-07-22 (décision prise au checkpoint) — tracée le 2026-09-05
 **Décideurs :** Thomas (propriétaire du projet et du compte WhatsApp)
 **Lié :** ADR-0001 (frontière read-only), ADR-0002 (le plafond éditable à la main uniquement)
-**Feature :** [0012](../../features/0012-adr-serveur-ne-configure-pas-le-client.md) — la décision ; l'implémentation de l'installer humain vit en [0010](../../features/done/0010-installer-doctor-cli.md)
+**Feature :** [0012](../../features/done/0012-adr-serveur-ne-configure-pas-le-client.md) — la décision ; l'implémentation de l'installer humain vit en [0010](../../features/done/0010-installer-doctor-cli.md)
 
 ## Contexte
 
