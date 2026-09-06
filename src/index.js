@@ -301,9 +301,11 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         const requested = Array.isArray(args.channels) ? args.channels : [];
         if (requested.length === 0) return fail("Fournis au moins un canal ('channels').");
 
-        let jids;
+        let pairs;
         try {
-          jids = requested.map((c) => wa._resolveToJid(c));
+          // On garde l'ENTRÉE d'origine à côté du JID résolu, pour ne jamais divulguer un
+          // JID que l'appelant n'aurait pas fourni lui-même (cf. le refus ci-dessous).
+          pairs = requested.map((c) => ({ input: c, jid: wa._resolveToJid(c) }));
         } catch (e) {
           return fail(e?.message || String(e));
         }
@@ -311,17 +313,20 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         // Vérification ⊆ grants ∩ plafond AVANT tout prompt (décision 4 de la fiche) :
         // le reçu du consentement doit dire exactement ce qu'il accorde.
         wa.allowlist.refresh();
-        const denied = jids.filter((jid) => !wa.settings.has(jid) || !wa._ceilingHas(jid));
+        const denied = pairs.filter(({ jid }) => !wa.settings.has(jid) || !wa._ceilingHas(jid));
         if (denied.length > 0) {
           return fail(
             `Hors grants ∩ plafond, refusé avant toute demande de consentement : ` +
-              // Ne nomme un canal refusé que s'il est DÉJÀ granté (l'humain le connaît). Sinon,
-              // n'expose que le JID : sortir le nom d'un groupe hors plafond via knownGroups
-              // fuiterait le graphe social que list_groups masque volontairement (revue 2026-09-05).
-              `${denied.map((jid) => (wa.settings.has(jid) ? `« ${subjectFor(jid)} »` : jid)).join(", ")}. ` +
+              // On réécho UNIQUEMENT l'entrée fournie par l'appelant, jamais le JID résolu :
+              // `_resolveToJid` transforme un NOM en son JID (via knownGroups) même hors
+              // plafond ; renvoyer ce JID ferait de session_open un oracle nom→JID pour des
+              // groupes que list_groups masque volontairement (revue Codex #25). Réécho de
+              // l'entrée telle quelle : l'appelant l'a déjà, ça ne divulgue rien de neuf.
+              `${denied.map(({ input }) => `« ${input} »`).join(", ")}. ` +
               `Utilise 'grant_channel' (le canal doit aussi être dans le plafond, édité à la main) d'abord.`
           );
         }
+        const jids = pairs.map((p) => p.jid);
 
         const ttlMs = Number.isInteger(args.ttlMs) && args.ttlMs > 0 ? args.ttlMs : config.sessionTtlMs;
         const subjects = jids.map(subjectFor);

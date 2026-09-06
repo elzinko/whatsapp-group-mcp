@@ -48,7 +48,10 @@ export class SessionRegistry {
   _write(session) {
     this._ensureDir();
     const file = this._fileFor(session.id);
-    const tmp = `${file}.tmp`;
+    // Tmp UNIQUE par process (+ aléa) : le registre est partagé (plusieurs process MCP +
+    // la CLI humaine). Un tmp fixe `<id>.json.tmp` ferait se marcher dessus deux écritures
+    // concurrentes du même jeton (rename ENOENT, ou données mêlées) — revue Codex #25.
+    const tmp = `${file}.tmp.${process.pid}.${crypto.randomBytes(4).toString("hex")}`;
     fs.writeFileSync(tmp, JSON.stringify(session, null, 2) + "\n", { mode: 0o600 });
     fs.renameSync(tmp, file);
   }
@@ -137,8 +140,14 @@ export class SessionRegistry {
       this._remove(token);
       return null;
     }
+    // LECTURE SEULE : on ne réécrit PAS le fichier ici. Réécrire pour avancer lastSeenAt
+    // pouvait RESSUSCITER une session fermée entre-temps par un autre process (CLI ou autre
+    // process MCP) dans la fenêtre entre _read et _write — la révocation immédiate n'était
+    // alors plus garantie (revue Codex #25). lastSeenAt n'avance donc plus sur disque à
+    // chaque appel : c'est un champ d'AUDIT (la fin de vie tient au TTL/expiresAt, pas à
+    // lastSeenAt), et son suivi précis inter-process viendra avec le démon à écrivain
+    // unique (fiche 0005). On l'avance en mémoire pour l'appelant, sans persister.
     session.lastSeenAt = new Date().toISOString();
-    this._write(session);
     return session;
   }
 

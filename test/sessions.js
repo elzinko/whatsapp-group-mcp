@@ -70,6 +70,18 @@ try {
     const resolved2 = reg.resolve(s1.id);
     check("lastSeenAt avance à chaque résolution", new Date(resolved2.lastSeenAt).getTime() >= new Date(seenAt1).getTime());
 
+    // resolve() est LECTURE SEULE sur disque : il ne réécrit PAS le fichier (revue Codex #25).
+    // Réécrire pouvait ressusciter une session fermée entre-temps par un autre process (CLI/
+    // MCP) dans la fenêtre lecture→écriture. Preuve : le contenu du fichier ne change pas
+    // après un resolve (l'ancien code, qui persistait lastSeenAt, faisait échouer ce test).
+    const s1file = path.join(dir, `${s1.id}.json`);
+    const contentBeforeResolve = fs.readFileSync(s1file, "utf8");
+    reg.resolve(s1.id);
+    check(
+      "resolve() ne réécrit pas le fichier (lecture seule, anti-résurrection)",
+      fs.readFileSync(s1file, "utf8") === contentBeforeResolve
+    );
+
     check("resolve() d'un jeton inconnu -> null (fail-closed)", reg.resolve("f".repeat(32)) === null);
     check("resolve() d'un jeton mal formé -> null (fail-closed)", reg.resolve("../../etc/passwd") === null);
     check("resolve() d'un jeton vide/undefined -> null", reg.resolve() === null && reg.resolve("") === null);
@@ -266,6 +278,15 @@ try {
       check(
         "session_open hors grants ∩ plafond -> AUCUN prompt déclenché (vérifié AVANT le consentement)",
         elicitCount() === beforeElicit
+      );
+      // Anti-oracle (revue Codex #25) : le refus ne renvoie QUE l'entrée fournie par
+      // l'appelant, jamais un JID résolu via knownGroups. Ici l'entrée EST un JID (l'appelant
+      // le connaît déjà) → il peut apparaître ; la scène nom→JID masqué exige un knownGroups
+      // peuplé (connexion réelle), non simulable hermétiquement — garantie par construction
+      // (on n'écho jamais `_resolveToJid(input)`, seulement `input`).
+      check(
+        "session_open refusé -> réécho l'entrée fournie (pas d'autre identifiant divulgué)",
+        res.text.includes(CHAN_UNGRANTED)
       );
 
       // --- session_open réussit (élicitation, drapeau OFF) : deux jetons, deux scopes ---
