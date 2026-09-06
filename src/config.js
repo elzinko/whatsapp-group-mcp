@@ -42,6 +42,14 @@ const authDir = process.env.WHATSAPP_AUTH_DIR
   ? path.resolve(projectRoot, process.env.WHATSAPP_AUTH_DIR)
   : path.join(projectRoot, "auth");
 
+// Verrou OS exclusif anti-collision entre process (fiche 0009). À CÔTÉ de authDir,
+// pas dedans : auth/ est effacé au wipe post-401 (ré-appairage) et un verrou logé
+// dedans disparaîtrait avec lui juste avant qu'un nouveau process ne le réutilise.
+// Voir src/authlock.js.
+const authLockFile = process.env.WHATSAPP_AUTH_LOCK
+  ? path.resolve(projectRoot, process.env.WHATSAPP_AUTH_LOCK)
+  : `${authDir}.lock`;
+
 const dataDir = process.env.WHATSAPP_DATA_DIR
   ? path.resolve(projectRoot, process.env.WHATSAPP_DATA_DIR)
   : path.join(projectRoot, "data");
@@ -79,6 +87,7 @@ export const config = {
   // l'appairage : le changer n'a d'effet qu'après un ré-appairage (QR).
   deviceName: (process.env.WHATSAPP_DEVICE_NAME || "").trim() || "whatsapp-group-mcp",
   authDir,
+  authLockFile,
   dataDir,
   settingsFile,
   allowlistFile,
