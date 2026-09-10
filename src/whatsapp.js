@@ -180,19 +180,25 @@ export class WhatsAppClient {
   //   2. une couverture par NOM seul est refusée si plusieurs groupes connus portent
   //      ce nom — le nom est contrôlé par les admins d'un groupe, donc usurpable :
   //      un tiers peut renommer SON groupe comme une entrée de ton plafond.
+  // Un nom partagé par 2+ groupes connus est une identité FAIBLE : un admin peut
+  // renommer SON groupe pour usurper une entrée par nom. Plafond ET profil refusent
+  // donc une couverture par nom ambiguë (audit de pré-publication + retour Codex PR #34).
+  _nameIsAmbiguous(subject) {
+    const target = normalize(subject);
+    if (!target) return false;
+    return [...this.knownGroups.values()].filter((s) => normalize(s) === target).length > 1;
+  }
+
   _ceilingHas(jid) {
     this.allowlist.refresh();
     const subject = this._subjectFor(jid);
     const match = this.allowlist.match(jid, subject);
     if (match === "jid") return true; // identité forte
     if (match !== "name") return false;
-
-    const target = normalize(subject);
-    const homonymes = [...this.knownGroups.values()].filter((s) => normalize(s) === target);
-    if (homonymes.length > 1) {
+    if (this._nameIsAmbiguous(subject)) {
       log(
-        `Plafond : « ${subject} » désigne ${homonymes.length} groupes différents — ` +
-          `entrée par nom ambiguë, REFUSÉE. Remplace-la par le JID exact dans ${this.config.allowlistFile}.`
+        `Plafond : « ${subject} » désigne plusieurs groupes — entrée par nom ambiguë, ` +
+          `REFUSÉE. Remplace-la par le JID exact dans ${this.config.allowlistFile}.`
       );
       return false;
     }
@@ -209,11 +215,18 @@ export class WhatsAppClient {
     const active = declared !== "" || this.profile.exists;
     if (!active) return true; // profils non configurés : couche inerte (ADR-0002)
     if (!declared) return false; // configurés mais process non déclaré : RIEN
-    // Match par nom SANS la garde anti-homonyme de _ceilingHas : inutile ici, car le
-    // profil est TOUJOURS ANDé au plafond (_inScope), qui porte cette garde forte. Le
-    // profil ne peut donc jamais ré-admettre un homonyme usurpé que le plafond refuse.
     const subject = this._subjectFor(jid);
-    return this.profile.permits(declared, jid, subject);
+    const match = this.profile.match(declared, jid, subject);
+    if (match === "jid") return true; // identité forte
+    if (match !== "name") return false;
+    // Même garde anti-homonyme que le plafond : un nom ambigu ne suffit pas à ouvrir un
+    // profil, même quand le plafond a admis les deux JID homonymes par identité forte —
+    // sinon un admin renomme son groupe au nom du profil et s'y infiltre (Codex PR #34).
+    if (this._nameIsAmbiguous(subject)) {
+      log(`Profil « ${declared} » : « ${subject} » désigne plusieurs groupes — nom ambigu REFUSÉ.`);
+      return false;
+    }
+    return true;
   }
 
   // Le périmètre effectif : plafond ET profil. Deux bornes au même point.
@@ -522,10 +535,16 @@ export class WhatsAppClient {
     if (!this.isReady()) throw new Error("WhatsApp non connecté (scanne d'abord le QR code).");
     const all = await this._refreshGroups();
     const groups = [];
-    let hidden = 0;
+    let hiddenOutsideAllowlist = 0;
+    let hiddenOutsideProfile = 0;
     for (const g of Object.values(all)) {
-      if (!this._inScope(g.id)) {
-        hidden += 1;
+      if (!this._ceilingHas(g.id)) {
+        hiddenOutsideAllowlist += 1;
+        continue;
+      }
+      if (!this._profileHas(g.id)) {
+        // Au plafond mais hors du profil actif : caché POUR CE PROJET (pas hors plafond).
+        hiddenOutsideProfile += 1;
         continue;
       }
       groups.push({
@@ -537,7 +556,7 @@ export class WhatsAppClient {
       });
     }
     groups.sort((a, b) => (a.subject || "").localeCompare(b.subject || ""));
-    return { groups, hidden };
+    return { groups, hiddenOutsideAllowlist, hiddenOutsideProfile };
   }
 
   // Autorise la LECTURE d'un canal. Le nom mémorisé est toujours celui résolu par
@@ -631,19 +650,23 @@ export class WhatsAppClient {
   }
 
   status() {
-    const granted = this.settings.list();
+    // Un grant hors du profil ACTIF appartient à un autre projet : on ne le divulgue
+    // pas (JID, nom, provenance, tampon) — c'est précisément ce que le profil doit
+    // cacher (retour Codex PR #34). En couche inerte, _profileHas est vrai pour tous
+    // (statu quo). `suspended` reste pour un grant DANS le profil mais sorti du PLAFOND.
+    const visible = this.settings.list().filter((g) => this._profileHas(g.jid));
     return {
       state: this.state,
       connected: this.isReady(),
       // Ce serveur ne sait pas envoyer : il n'existe aucune méthode d'envoi (ADR-0001).
       readOnly: true,
-      grantedChannels: granted.map((g) => ({
+      grantedChannels: visible.map((g) => ({
         jid: g.jid,
         subject: g.subject,
         scope: g.scope,
-        // suspended = granté mais sorti du plafond : inerte tant que l'humain ne le
-        // réintègre pas à la main dans allowlist.json.
-        suspended: !this._inScope(g.jid) || undefined,
+        // suspended = dans le profil mais sorti du plafond : inerte tant que l'humain
+        // ne le réintègre pas à la main dans allowlist.json.
+        suspended: !this._ceilingHas(g.jid) || undefined,
         messagesBuffered: this.stores.get(g.jid)?.size() ?? 0,
         // Provenance du consentement (fiche 0008) : dit sans ambiguïté si un humain
         // a confirmé (élicitation/Touch ID) ou si le client l'a auto-accordé sans
@@ -664,7 +687,7 @@ export class WhatsAppClient {
       hint:
         this.state === "qr"
           ? "Un QR code est affiché dans les logs : scanne-le depuis ton téléphone (iPhone : Réglages > Appareils liés ; Android : ⋮ > Appareils connectés)."
-          : granted.length === 0
+          : visible.length === 0
             ? "Aucun canal autorisé : appelle 'list_groups' puis 'grant_channel'."
             : undefined,
     };

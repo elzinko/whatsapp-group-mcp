@@ -278,20 +278,29 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       }
 
       case "list_groups": {
-        const { groups, hidden } = await wa.listGroups();
+        const { groups, hiddenOutsideAllowlist, hiddenOutsideProfile } = await wa.listGroups();
         const resolvedSession = args.session ? sessions.resolve(args.session) : null;
         const inSession = resolvedSession ? new Set(resolvedSession.channels) : null;
+        const notes = [];
+        if (hiddenOutsideAllowlist > 0)
+          notes.push(
+            `${hiddenOutsideAllowlist} autre(s) groupe(s) existent mais sont hors du plafond : ils ne ` +
+              `sont pas listables ici. Pour les voir et relever leur JID, l'humain lance ` +
+              `« npm run list-groups » dans un terminal, puis ajoute l'entrée à la main dans ${config.allowlistFile}.`
+          );
+        if (hiddenOutsideProfile > 0)
+          notes.push(
+            `${hiddenOutsideProfile} groupe(s) sont AU plafond mais hors du profil actif` +
+              (config.profile ? ` « ${config.profile} »` : "") +
+              ` : pour les voir dans ce projet, ajoute-les à ce profil dans ${config.profilesFile} ` +
+              `(inutile de toucher au plafond, ils y sont déjà).`
+          );
         return ok({
           count: groups.length,
           groups: inSession ? groups.map((g) => ({ ...g, inSession: inSession.has(g.id) })) : groups,
-          hiddenOutsideAllowlist: hidden,
-          note:
-            hidden > 0
-              ? `${hidden} autre(s) groupe(s) existent mais sont hors du plafond : ils ne sont ` +
-                `pas listables ici. Pour les voir et relever leur JID, l'humain lance ` +
-                `« npm run list-groups » dans un terminal, puis ajoute l'entrée à la main ` +
-                `dans ${config.allowlistFile}.`
-              : undefined,
+          hiddenOutsideAllowlist,
+          hiddenOutsideProfile,
+          note: notes.length ? notes.join(" ") : undefined,
         });
       }
 

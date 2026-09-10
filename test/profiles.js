@@ -220,6 +220,76 @@ try {
   try { served10 = wa10.recentFor("111@g.us"); } catch { served10 = "refusé"; }
   check("après retrait à chaud du profil : recentFor refuse le canal", served10 === "refusé");
   check("le message bufferisé subsiste mais n'est plus servi", wa10.stores.get("111@g.us")?.size() === 1);
+
+  // --- 11) Anti-homonyme AU PROFIL (Codex #34) : plafond admet 2 JID homonymes par
+  //         identité forte ; un profil PAR NOM ne doit pas les rouvrir (sinon un admin
+  //         renomme son groupe au nom du profil et s'y infiltre) ---
+  const ceilAmbFile = path.join(tmp, "ceil-amb.json");
+  fs.writeFileSync(ceilAmbFile, JSON.stringify({ version: 1, channels: ["111@g.us", "222@g.us"] }));
+  const profAmbFile = path.join(tmp, "prof-amb.json");
+  fs.writeFileSync(profAmbFile, JSON.stringify({ version: 1, profiles: { p: ["Copro"] } })); // par NOM
+  const wa11 = new WhatsAppClient(
+    { maxMessages: 10, persist: false, allowlistFile: ceilAmbFile, profile: "p" },
+    new Settings(path.join(tmp, "settings11.json")),
+    new Allowlist(ceilAmbFile).load(),
+    new Profiles(profAmbFile).load()
+  );
+  wa11.knownGroups = new Map([["111@g.us", "Copro"], ["222@g.us", "Copro"]]); // 2 homonymes
+  check("anti-homonyme : plafond admet 111 par JID", wa11._ceilingHas("111@g.us") === true);
+  check("anti-homonyme : plafond admet 222 par JID", wa11._ceilingHas("222@g.us") === true);
+  check("anti-homonyme : profil par nom ambigu -> 111 hors scope", wa11._inScope("111@g.us") === false);
+  check("anti-homonyme : profil par nom ambigu -> 222 hors scope", wa11._inScope("222@g.us") === false);
+  fs.writeFileSync(profAmbFile, JSON.stringify({ version: 1, profiles: { p: ["111@g.us"] } })); // désambiguïsé par JID
+  check("anti-homonyme : profil par JID exact -> 111 in scope", wa11._inScope("111@g.us") === true);
+  check("anti-homonyme : profil par JID exact -> 222 reste hors scope", wa11._inScope("222@g.us") === false);
+
+  // --- 12) status() CACHE les grants hors du profil actif (Codex #34) ---
+  const ceil12 = path.join(tmp, "ceil12.json");
+  fs.writeFileSync(ceil12, JSON.stringify({ version: 1, channels: ["111@g.us", "222@g.us", "333@g.us"] }));
+  const prof12 = path.join(tmp, "prof12.json");
+  fs.writeFileSync(prof12, JSON.stringify({ version: 1, profiles: { copro: ["111@g.us"] } }));
+  const settings12 = new Settings(path.join(tmp, "settings12.json"));
+  settings12.grant("111@g.us", "Copro", "elicitation");
+  settings12.grant("222@g.us", "Autre projet", "touchid"); // au plafond mais hors profil copro
+  settings12.grant("333@g.us", "Encore un", "elicitation"); // idem
+  const wa12 = new WhatsAppClient(
+    { maxMessages: 10, persist: false, allowlistFile: ceil12, profile: "copro" },
+    settings12,
+    new Allowlist(ceil12).load(),
+    new Profiles(prof12).load()
+  );
+  const st12 = wa12.status().grantedChannels;
+  check("status : seul le canal du profil est listé (111)", st12.length === 1 && st12[0].jid === "111@g.us");
+  check(
+    "status : aucun grant hors profil divulgué (ni 222 ni 333)",
+    !st12.some((g) => g.jid === "222@g.us" || g.jid === "333@g.us")
+  );
+
+  // --- 13) listGroups distingue hors-plafond et hors-profil (Codex #34) ---
+  const ceil13 = path.join(tmp, "ceil13.json");
+  fs.writeFileSync(ceil13, JSON.stringify({ version: 1, channels: ["111@g.us", "222@g.us"] }));
+  const prof13 = path.join(tmp, "prof13.json");
+  fs.writeFileSync(prof13, JSON.stringify({ version: 1, profiles: { copro: ["111@g.us"] } }));
+  const wa13 = new WhatsAppClient(
+    { maxMessages: 10, persist: false, allowlistFile: ceil13, profile: "copro" },
+    new Settings(path.join(tmp, "settings13.json")),
+    new Allowlist(ceil13).load(),
+    new Profiles(prof13).load()
+  );
+  wa13.state = "open";
+  wa13.sock = {
+    groupFetchAllParticipating: async () =>
+      Object.fromEntries(
+        [["111@g.us", "A"], ["222@g.us", "B"], ["999@g.us", "C"]].map(([jid, subject]) => [
+          jid,
+          { id: jid, subject, participants: [] },
+        ])
+      ),
+  };
+  const menu13 = await wa13.listGroups();
+  check("listGroups : seul 111 (plafond ∩ profil) visible", menu13.groups.length === 1 && menu13.groups[0].id === "111@g.us");
+  check("listGroups : 999 compté hors plafond", menu13.hiddenOutsideAllowlist === 1);
+  check("listGroups : 222 compté hors profil (pas hors plafond)", menu13.hiddenOutsideProfile === 1);
 } catch (e) {
   console.error("Erreur test:", e);
   failed = true;

@@ -18,7 +18,7 @@
 
 import fs from "node:fs";
 
-import { parseAllowlist, allowlistPermits } from "./allowlist.js";
+import { parseAllowlist, allowlistMatch } from "./allowlist.js";
 
 function normalize(s) {
   return String(s || "").trim().toLowerCase();
@@ -66,10 +66,17 @@ export class Profiles {
     return this;
   }
 
-  // Ce canal est-il couvert par le profil `name` ? Profil inconnu -> rien.
-  permits(name, jid, subject) {
+  // Type de couverture du profil `name` pour ce canal : "jid" | "name" | null.
+  // L'appelant (_profileHas) applique sur "name" la même garde anti-homonyme que le
+  // plafond. Profil inconnu -> null (rien).
+  match(name, jid, subject) {
     const entries = this.byName.get(normalize(name));
-    if (!entries) return false; // profil inconnu -> rien
-    return allowlistPermits(entries, jid, subject);
+    if (!entries) return null; // profil inconnu -> rien
+    return allowlistMatch(entries, jid, subject);
+  }
+
+  // Ce canal est-il couvert par le profil `name` ? (sans distinguer la force)
+  permits(name, jid, subject) {
+    return this.match(name, jid, subject) !== null;
   }
 }
