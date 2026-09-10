@@ -24,8 +24,9 @@ admin** (WhatsApp perso n'a ni console d'organisation ni IAM). Principe partagé
   pas. Le pire cas est de *lire* un groupe déjà au plafond.
 - **Le LLM ne touche jamais au plafond.** `allowlist.json` s'édite à la main, dans un
   terminal — aucun outil ne l'écrit.
-- **Tout expire tout seul.** Une session dure 8 h par défaut ; un grant se révoque
-  (`revoke_channel`) ou reste borné au plafond. Rien de permanent n'est posé.
+- **Une session expire seule** (8 h par défaut) ; **un grant, non** — il est persistant
+  (`settings.json`) mais reste borné au plafond, et se retire avec `revoke_channel`. Le
+  test finit donc par un `revoke_channel` s'il a créé le grant (Phase G).
 - **Le message de test** posté depuis le téléphone reste dans ton groupe : il n'est ni
   créé ni supprimé par l'agent.
 
@@ -135,12 +136,14 @@ Prompt : `Retire l'accès au groupe « «GROUPE_AU_PLAFOND» », puis autorise-l
 Au moment du **ré-autorise**, selon la Phase A :
 
 - **Touch ID** → une boîte macOS Touch ID apparaît. **Toi seul** la vois et la valides.
-  - Empreinte acceptée → `grant_channel` renvoie `{ granted: true, scope: "read", via: "touchid" }`.
+  - Empreinte acceptée → `grant_channel` renvoie `{ jid, subject, scope: "read", granted: true }`.
+    La provenance (`via: "touchid"`) est **persistée** mais **ne figure pas** dans cette
+    réponse : on la lit via `whatsapp_status` (fiche 0008), pas dans le retour du grant.
   - Annulée / échouée → refus « Touch ID … Le grant n'a pas été accordé » (fail-closed).
 - **Élicitation** → un formulaire serveur Accept/Decline apparaît (le texte commence par
   « Le LLM demande l'accès en LECTURE au groupe WhatsApp… »). La réponse ne passe **pas**
-  par le LLM. Accept → `{ granted: true, scope: "read" }` ; Decline → « Autorisation
-  refusée par l'humain ».
+  par le LLM. Accept → `{ jid, subject, scope: "read", granted: true }` ; Decline →
+  « Autorisation refusée par l'humain ».
 - **Permissions du client** → **aucun** formulaire serveur ; le grant est accordé
   directement (`via: "client-permissions"`). → **c'est le cas de la fiche 0008.**
 
@@ -161,9 +164,17 @@ Puis ouvrir la session :
 
 Prompt : `Ouvre une session de lecture sur le groupe « «GROUPE_AU_PLAFOND» ».` → `session_open`.
 
-- Selon la Phase A, un **second** consentement est demandé (Touch ID ou élicitation) —
-  capter un canal et ouvrir une session sont **deux gestes distincts**.
-- L'appel renvoie un **jeton** et une échéance.
+Le consentement de session est **fail-closed**, à la différence du grant : ouvrir une
+session crée un périmètre neuf, elle exige une garantie forte (fiche 20260902223310499).
+
+- **Touch ID** ou **élicitation** (selon Phase A) → un **second** consentement est demandé
+  (capter un canal et ouvrir une session sont **deux gestes distincts**). Accepté → l'appel
+  renvoie un **jeton** et une échéance.
+- **Permissions du client** (strong-auth OFF **et** pas d'élicitation) → `session_open`
+  **REFUSE** : « aucun consentement vérifiable n'est disponible, la session n'est pas
+  ouverte ». **Pas** de repli « permissions client » ici (contrairement au grant, fiche
+  0008). Les Phases D–E **ne peuvent pas** aboutir dans ce mode : réactive le drapeau
+  strong-auth (Touch ID, ON par défaut) pour les jouer, ou note que ce client s'arrête au grant.
 
 Vérifier le périmètre : `Quel est le statut de ma session ?` en passant le jeton →
 `whatsapp_status` avec `session:<jeton>` affiche `{ expiresAt, channels:[…] }`.
@@ -171,8 +182,8 @@ Vérifier le périmètre : `Quel est le statut de ma session ?` en passant le je
 Assertions :
 
 - [ ] Sans jeton, `get_recent_messages` est **refusé** (et explique comment ouvrir une session).
-- [ ] `session_open` demande le consentement humain (noter Touch ID / formulaire).
-- [ ] Jeton obtenu ; `expiresAt` ≈ 8 h ; `channels` = le(s) groupe(s) demandé(s).
+- [ ] Touch ID/élicitation → `session_open` demande le consentement ; jeton obtenu, `expiresAt` ≈ 8 h, `channels` corrects.
+- [ ] Permissions du client → `session_open` **refuse** (fail-closed) ; le parcours session s'arrête ici.
 
 ### Phase E — lecture E2E (via la session)
 
@@ -209,16 +220,18 @@ les groupes **au plafond mais hors du profil**, avec une note qui dit d'éditer 
 ### Phase G — nettoyage (réversible, sur accord)
 
 - `session_close` avec le jeton → ferme la session. **Aucun** consentement supplémentaire
-  (réduire est toujours permis).
-- `revoke_channel « «GROUPE_AU_PLAFOND» »` pour revenir à l'état de départ.
-- Sinon, ne rien faire : session (8 h) et grants se referment/expirent seuls.
+  (réduire est toujours permis). À défaut, la session expire seule après son TTL (8 h).
+- `revoke_channel « «GROUPE_AU_PLAFOND» »` — **obligatoire** si le run a créé ou recréé ce
+  grant : un grant est **persistant** (`settings.json`, survit aux redémarrages) et
+  **n'expire pas**. Sans révocation, le groupe reste autorisé après le test.
 
 L'agent ne supprime rien côté téléphone ni sur disque : le serveur est en lecture seule.
 
 ## Rejouabilité — le test est idempotent
 
 - **Aucune écriture WhatsApp** : rien à recompter d'un run à l'autre.
-- **Sessions et grants expirés** entre deux runs : re-demander est normal, c'est le produit.
+- **Sessions** expirées entre deux runs : re-`session_open` est normal (TTL). Les **grants**,
+  eux, **persistent** — un canal capté le reste jusqu'à `revoke_channel` (Phase G).
 - **Le message de test** reste dans le groupe ; un horodatage dans le texte évite toute
   confusion entre deux runs.
 - **`./auth` partagé** : un seul client à la fois (Phase Prérequis n°2).
@@ -229,8 +242,8 @@ L'agent ne supprime rien côté téléphone ni sur disque : le serveur est en le
 - [ ] Refus hors plafond constaté, sans consentement déclenché.
 - [ ] Grant au plafond : consentement humain observé (Touch ID / formulaire / aucun — noté).
 - [ ] `get_recent_messages` refusé sans jeton de session.
-- [ ] `session_open` : consentement observé, jeton + `expiresAt` + périmètre corrects.
-- [ ] Lecture E2E réussie via la session (message du téléphone relu).
+- [ ] `session_open` : en Touch ID/élicitation, consentement observé + jeton + `expiresAt` + périmètre corrects ; en « permissions du client », **refus** fail-closed (attendu).
+- [ ] Lecture E2E réussie via la session (sauf mode « permissions du client », où la session ne s'ouvre pas).
 - [ ] Aucun consentement déclenché sur un cas refusé (hors plafond, hors périmètre).
 - [ ] (optionnel) Groupe hors profil masqué dans `list_groups`.
 
