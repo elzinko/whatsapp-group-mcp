@@ -79,7 +79,10 @@ export class Settings {
       scope: SCOPE_READ,
       subject: subject || null,
       grantedAt: existing?.grantedAt || new Date().toISOString(),
-      via: via ?? null,
+      // Rafraîchir un grant (ex. groupe renommé via _revalidateGrants) SANS repasser
+      // `via` ne doit pas effacer la provenance déjà persistée (retour Codex PR #31) :
+      // on retombe sur l'existante, et seul un `via` explicite la met à jour.
+      via: via ?? existing?.via ?? null,
     });
     this.save();
     return this.grants.get(jid);

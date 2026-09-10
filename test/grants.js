@@ -49,6 +49,13 @@ try {
   const v2 = new Settings(viaFile).load();
   check("via rechargé depuis le disque", v2.list()[0].via === "elicitation");
 
+  // Retour Codex (PR #31) : un re-grant SANS via (ex. groupe renommé par
+  // _revalidateGrants) ne doit pas écraser la provenance déjà persistée.
+  v1.grant("333@g.us", "Voisins renommés"); // via omis, comme au renommage
+  const v2b = new Settings(viaFile).load().list().find((g) => g.jid === "333@g.us");
+  check("re-grant sans via préserve la provenance ('elicitation')", v2b.via === "elicitation");
+  check("re-grant sans via rafraîchit le subject", v2b.subject === "Voisins renommés");
+
   v1.grant("444@g.us", "Sans via");
   const v3 = new Settings(viaFile).load();
   check(
