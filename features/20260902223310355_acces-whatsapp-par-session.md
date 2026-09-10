@@ -5,7 +5,7 @@ type: epic
 priority: P1
 version:
 epic:
-status: todo
+status: idea
 ready:
 pr:
 created: 2026-09-03

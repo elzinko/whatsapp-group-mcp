@@ -5,7 +5,6 @@
 
 | # | Titre | Type | Prio | Épic | Statut | PR |
 |---|-------|------|------|------|--------|----|
-| [0001](0001-valider-adr-0002-conditions-reelles.md) | Valider l'ADR-0002 en conditions réelles (plafond, élicitation, lecture E2E) | chore | P0 | 20260902223310355 | ❓ todo |  |
 | [0002](0002-article-mes-messages-mes-agents-et-moi.md) | Article : « La question que le LLM ne peut pas trafiquer » (le MCP comme leçon de sécurité vécue) | feature | P1 |  | ⛔ blocked |  |
 | [20260902223310499](done/20260902223310499_droits-par-session-jeton-porte.md) | Droits par session — jeton porté dans chaque appel, ouvert par Touch ID, périmètre ⊆ grants, TTL et révocation | feature | P1 | 20260902223310355 | ✅ shipped | #25 |
 | [0003](done/0003-hygiene-locale-permissions-filevault.md) | Hygiène locale — permissions fichiers, FileVault, pas de dossier synchronisé | chore | P2 |  | ✅ shipped | #28 |
@@ -22,7 +21,7 @@
 
 | # | Titre | Type | Prio | Épic | Statut | PR |
 |---|-------|------|------|------|--------|----|
-| [20260902223310355](20260902223310355_acces-whatsapp-par-session.md) | Accès WhatsApp par session — Cowork, Desktop et Code, chacun son périmètre (plafond ∩ profil ∩ session) | epic | P1 |  | ❓ todo |  |
+| [20260902223310355](20260902223310355_acces-whatsapp-par-session.md) | Accès WhatsApp par session — Cowork, Desktop et Code, chacun son périmètre (plafond ∩ profil ∩ session) | epic | P1 |  | 💡 idea |  |
 | [0005](0005-demon-frontends-mcp.md) | Démon unique + frontends MCP minces (phase 2 — multi-clients simultanés) | epic | P3 |  | 💡 idea |  |
 | [0006](0006-app-mobile-tokens.md) | Accès réseau pour l'app mobile — tokens à capabilities, TLS/Tailscale (phase 3) | epic | P3 |  | 💡 idea |  |
 
@@ -30,6 +29,7 @@
 
 | # | Titre | Type | Prio | Épic | Statut | PR |
 |---|-------|------|------|------|--------|----|
+| [0001](0001-valider-adr-0002-conditions-reelles.md) | Valider l'ADR-0002 en conditions réelles (plafond, élicitation, lecture E2E) | chore | P0 | 20260902223310355 | 💡 idea |  |
 | [0007](0007-elicitation-signee-touch-id.md) | Élicitation signée — consentement par authentification physique (Touch ID / Secure Enclave) | feature | P3 |  | 💡 idea |  |
 | [20260902223310640](20260902223310640_emballage-plugin-cowork-marketplace.md) | Emballage plugin Claude (marketplace elzinko) — skills + .mcp.json pour Cowork et Code | feature | P3 | 20260902223310355 | 💡 idea |  |
 

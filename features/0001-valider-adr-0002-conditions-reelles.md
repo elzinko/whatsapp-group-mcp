@@ -5,7 +5,7 @@ type: chore
 priority: P0
 version:
 epic: "20260902223310355"
-status: todo
+status: idea
 ready:
 pr:
 created: 2026-07-18
