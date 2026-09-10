@@ -5,7 +5,7 @@ type: epic
 priority: P1
 version:
 epic:
-status: todo
+status: idea
 ready:
 pr:
 created: 2026-09-03
@@ -60,7 +60,7 @@ de l'ADR-0003).
 |---|---|---|
 | Identité d'une conversation | jeton émis par un geste signé (`mag session open`), **porté dans chaque appel** (`session`) | idem : le protocole MCP ne fournit pas d'id de conversation |
 | Grain des droits | compte × service × opération × ressource | **canal** (JID) × lecture — une seule opération, tout est plus simple |
-| Plafonds | policy compte ∩ manifeste projet ∩ session | **plafond ∩ profil projet ([0004](0004-profils-par-projet.md)) ∩ session** |
+| Plafonds | policy compte ∩ manifeste projet ∩ session | **plafond ∩ profil projet ([0004](done/0004-profils-par-projet.md)) ∩ session** |
 | Geste humain | élicitation signée Secure Enclave (v2) | Touch ID presence check v1 (livré, 0013) ; v2 signé = [0007](0007-elicitation-signee-touch-id.md), optionnel |
 | Multi-clients | broker loopback (Phase 2A) | démon + frontends ([0005](0005-demon-frontends-mcp.md)) — nécessité fonctionnelle, pas un confort |
 | Cycle de vie | TTL + révocation ; la déconnexion MCP ne purge rien | idem |
@@ -105,7 +105,7 @@ Séquence proposée (chaque étape est une fiche) :
 3. **Multi-clients simultanés** — [0005](0005-demon-frontends-mcp.md) (épic frère,
    prérequis) : le registre de sessions migre dans le démon ; Cowork + N sessions Code
    sans 440.
-4. **Profils par projet** — [0004](0004-profils-par-projet.md) : couche statique optionnelle.
+4. **Profils par projet** — [0004](done/0004-profils-par-projet.md) : couche statique optionnelle.
 5. **Emballage plugin** —
    [20260902223310640](20260902223310640_emballage-plugin-cowork-marketplace.md) : idée,
    en dernier.

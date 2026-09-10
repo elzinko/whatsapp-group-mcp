@@ -1,298 +1,350 @@
-# Test manuel — validation en conditions réelles (Claude Desktop / Cowork / Code)
+# Test manuel — le consentement humain tient en conditions réelles (Desktop / Cowork / Code)
 
-Ce qu'on vérifie ici ne peut **pas** l'être par un test automatisé : prouver qu'un
-**humain** a bien vu — et pu refuser — une question rédigée par le serveur. Un test qui
-répond au formulaire serait un robot (cf. `test/elicitation.js`, qui couvre tout le reste).
+Ce test prouve une seule chose, mais à fond : **le LLM ne peut pas élargir seul son accès
+à WhatsApp**. Chaque élargissement — capter un canal, ouvrir une session — exige un geste
+**humain** que le LLM ne peut ni voir ni contrefaire : Touch ID, ou un formulaire rédigé
+par le serveur. C'est exactement ce qui **ne peut pas** être automatisé : un test qui
+répond au formulaire serait un robot (`test/elicitation.js`, `test/touchid.js`,
+`test/sessions.js` couvrent tout le reste — le contrat, pas le geste).
 
-- **Valide** la fiche [0001](../../features/0001-valider-adr-0002-conditions-reelles.md) (P0) — action 8 de l'[ADR-0002](../adr/0002-le-plafond-et-le-consentement.md).
-- **Décide** la fiche [0008](../../features/0008-repli-sans-elicitation-fail-open.md) (P1) : selon le résultat du **Test A**, le repli sans élicitation devient un sujet critique ou un non-sujet.
+Protocole calqué sur le projet frère `google-mcp-multi-account`, **sans sa dimension
+admin** (WhatsApp perso n'a ni console d'organisation ni IAM). Principe partagé :
 
-> ⏱️ Compter ~10 min par client. Le **Test A** seul (2 min) suffit à trancher l'essentiel.
+> l'outil vérifie · l'humain autorise · le LLM orchestre
 
----
+- **Valide** la fiche [0001](../../features/0001-valider-adr-0002-conditions-reelles.md) (P0) — la 1re marche de l'épic « accès par session ».
+- **Décide** la fiche [0008](../../features/done/0008-repli-sans-elicitation-fail-open.md) : si un client tombe en « permissions du client », le repli sans élicitation redevient un sujet.
 
-## Phase 0 — Vérifier que le MCP est branché *(par client, à faire en premier)*
+> ⏱️ ~15 min par client. Les Phases A→C (le mode de consentement + Touch ID) tranchent
+> l'essentiel en ~5 min ; D→E ajoutent la session et la lecture bout-en-bout.
 
-Un test ne veut rien dire si le client n'est pas relié au serveur. Et chaque client se
-configure **à un endroit différent**. Le branchement est correct si, dans le client,
-l'assistant a accès aux 5 outils (`whatsapp_status`, `list_groups`, `grant_channel`,
-`revoke_channel`, `get_recent_messages`). Test le plus simple : demander « quel est le
-statut WhatsApp ? » — s'il répond, c'est branché ; s'il dit ne pas avoir l'outil, non.
+## Rien ne peut casser
 
-### Claude Code
-- **Vérifier :** `claude mcp list` (doit lister `whatsapp-group`), ou demander le statut en session.
-- **Configurer si absent :**
-  ```bash
-  claude mcp add whatsapp-group -- node /CHEMIN/ABSOLU/VERS/whatsapp-group-mcp/src/index.js
-  ```
+- **Le serveur est en LECTURE SEULE.** Aucun outil n'envoie de message : `send` n'existe
+  pas. Le pire cas est de *lire* un groupe déjà au plafond.
+- **Le LLM ne touche jamais au plafond.** `allowlist.json` s'édite à la main, dans un
+  terminal — aucun outil ne l'écrit.
+- **Une session expire seule** (8 h par défaut) ; **un grant, non** — il est persistant
+  (`settings.json`) mais reste borné au plafond, et se retire avec `revoke_channel`. Le
+  test finit donc par un `revoke_channel` s'il a créé le grant (Phase G).
+- **Le message de test** posté depuis le téléphone reste dans ton groupe : il n'est ni
+  créé ni supprimé par l'agent.
 
-### Claude Desktop
-- **Le bon endroit** (confirmé) : `~/Library/Application Support/Claude/claude_desktop_config.json`,
-  clé `mcpServers`. Le README dit vrai.
-- ⚠️ **Éditer Desktop COMPLÈTEMENT QUITTÉ** (Cmd-Q, pas juste fermer la fenêtre). L'app
-  **réécrit ce fichier en direct** : une édition faite pendant qu'elle tourne est **effacée**.
-  C'est la cause la plus probable d'un ajout « qui ne tient pas ». Quitter → éditer → rouvrir.
-- **Configurer** — fusionner ce bloc **dans** `mcpServers`, sans toucher aux serveurs déjà présents :
+Prompt de lancement clé-en-main : voir [Annexe](#annexe--prompt-pour-piloter-le-test) en bas.
+
+## Prérequis (humain)
+
+1. **Installer et appairer** — README à la racine : `npm install`, puis `npm start` et
+   scanner le QR **depuis le téléphone** (une seule fois ; `./auth` est ensuite réutilisé).
+2. **Un seul process sur `./auth` à la fois.** Deux process sur le même dossier auth se
+   déconnectent (erreur 440, appairage rasé). Avant d'ouvrir le client à tester :
+
+   ```bash
+   npm run stop      # coupe les serveurs lancés par les sessions Code
+   npm run doctor    # confirme que whatsapp-group est branché dans le client visé
+   ```
+
+   Puis laisse **le client** (Desktop/Cowork/Code) lancer le serveur — **pas les deux**.
+3. **Deux groupes sous la main**, dont tu remplaces les placeholders dans les prompts :
+   - **`«GROUPE_AU_PLAFOND»`** — présent dans `allowlist.json` (un groupe de test à toi).
+   - **`«GROUPE_HORS_PLAFOND»`** — dont tu es membre mais **absent** d'`allowlist.json`.
+4. *(Optionnel — couche profil, fiche 0004)* si tu testes un projet à `WHATSAPP_PROFILE`,
+   garde en tête un groupe **au plafond mais hors du profil actif** (Phase F bis).
+
+### Brancher Claude Desktop / Cowork (le piège classique)
+
+Desktop et Cowork partagent **le même** fichier de config et **le même** `./auth`.
+
+- **Le bon fichier** : `~/Library/Application Support/Claude/claude_desktop_config.json`,
+  clé `mcpServers`.
+- ⚠️ **Éditer l'app COMPLÈTEMENT QUITTÉE** (Cmd-Q, pas juste fermer la fenêtre). L'app
+  **réécrit ce fichier en direct** : une édition faite app ouverte est **effacée**. C'est
+  la cause n°1 d'un ajout « qui ne tient pas ». Quitter → éditer → rouvrir.
+- **Le bloc à fusionner** dans `mcpServers` (sans toucher aux serveurs présents) :
+
   ```json
   "whatsapp-group": {
     "command": "/opt/homebrew/bin/node",
     "args": ["/CHEMIN/ABSOLU/VERS/whatsapp-group-mcp/src/index.js"]
   }
   ```
-  Un écart **volontaire** avec le bloc du README, propre à cette machine : **`command` =
-  chemin absolu vers node**, pas `"node"`. Desktop lance les serveurs MCP avec un PATH
-  minimal **sans nvm ni Homebrew** ; `"node"` seul échouerait (« node introuvable »).
-  `/opt/homebrew/bin/node` est un chemin stable. **Pas de `WHATSAPP_AUTH_DIR`** : Desktop
-  partage le `./auth` déjà appairé (voir ci-dessous).
-- ⚠️ **Un seul client sur `./auth` à la fois** (décision de conception du 18/07 : un unique
-  dossier auth partagé, capture au fil de l'eau — deux appareils qui captent = archives en
-  double). `authDir` est résolu par rapport au **repo** (`src/config.js`), donc Desktop et
-  Code visent le **même** `./auth`. Avant de tester dans Desktop, libère la session :
-  ```bash
-  npm run stop
-  ```
-  (coupe aussi les serveurs lancés par les sessions Code ; ne relance pas `npm start` tant
-  que Desktop est ouvert). `./auth` étant **déjà appairé** (Code s'en sert), Desktop le
-  réutilise — **aucun nouveau QR à scanner**.
 
-### Cowork
-Même application que Desktop → **même** fichier de config, **même** `./auth` partagé, **même**
-règle : un seul client à la fois tient la session.
-
-> ✅ Phase 0 franchie quand « quel est le statut WhatsApp ? » renvoie un JSON (et non « je
-> n'ai pas cet outil »). Passe alors à « Avant de commencer », puis aux Tests A→D.
-
----
-
-## Avant de commencer
-
-1. **Installer et appairer** — suivre le README, à la racine du dépôt :
-   - [Installation](../../README.md#installation) → `npm install`
-   - [Premier lancement : appairage](../../README.md#premier-lancement--appairage) → `npm start`, scanner le QR **depuis le téléphone**
-   - [Brancher à Claude Desktop / Cowork](../../README.md#brancher-à-claude-desktop--cowork) → bloc `claude_desktop_config.json`
-
-2. **Un seul process Baileys à la fois.** Deux process sur le même `auth/` se déconnectent
-   mutuellement (erreur 440, appairage rasé). Avant d'ouvrir le client à tester :
-
-   ```bash
-   npm run stop
-   ```
-
-   Puis laisse **le client** (Desktop/Cowork/Code) lancer le serveur, ou lance-le à la main —
-   mais **pas les deux**. Un dossier `auth/` par client (Desktop → `./auth`, Code → `./auth-code`
-   via `WHATSAPP_AUTH_DIR`).
-
-3. **Préparer deux groupes** dans `allowlist.json` (le plafond, édité à la main) :
-   - **`«GROUPE_AU_PLAFOND»`** — un groupe présent dans `allowlist.json` (ex. un groupe de test à toi).
-   - **`«GROUPE_HORS_PLAFOND»`** — un groupe dont tu es membre mais **absent** d'`allowlist.json`.
-
-   Remplace les deux placeholders par des noms réels dans les prompts ci-dessous.
-
----
+  Écart **volontaire** avec le README, propre à cette machine : `command` = **chemin
+  absolu vers node**. Desktop lance les serveurs MCP avec un PATH minimal, **sans nvm ni
+  Homebrew** ; un `"node"` nu échouerait. **Pas de `WHATSAPP_AUTH_DIR`** : Desktop partage
+  le `./auth` déjà appairé par Code.
 
 ## Le relevé — à remplir
 
-| Client | `grantConsent` relevé (Test A) | Élicitation observée (Test C) | Verdict |
-|---|---|---|---|
-| Claude Code | `élicitation …` | ✅ formulaire serveur (2026-07-18) | validé |
-| Claude Desktop | _à relever_ | _à observer_ | _en attente_ |
-| Cowork | _à relever_ | _à observer_ | _en attente_ |
+| Client | Mode (`grantConsent`, Phase A) | Touch ID vu sur grant + session (C, D) | Session OK (D, E) | Verdict |
+|---|---|---|---|---|
+| Claude Code | élicitation (2026-07-18) | n/a (Touch ID venu après) | ✅ | validé (périmètre juillet) |
+| Claude Desktop | _à relever_ | _à observer_ | _à observer_ | _en attente_ |
+| Cowork | _à relever_ | _à observer_ | _à observer_ | _en attente_ |
 
----
+## Déroulé (ce que l'agent doit faire)
 
-## Test A — Statut & mode de consentement *(le relevé décisif, 2 min)*
+Conventions : l'agent appelle les outils MCP `whatsapp_status`, `list_groups`,
+`grant_channel`, `revoke_channel`, `session_open`, `get_recent_messages`, `session_close`.
+Il **ne consent jamais lui-même** : Touch ID et élicitation sont des gestes **humains**.
+Après chaque appel, il montre le champ pertinent puis **s'arrête** et attend.
 
-**Prompt à coller :**
+### Phase 0 — branchement (état des lieux)
 
-```
-Quel est le statut de la connexion WhatsApp ?
-```
+- Demander « quel est le statut WhatsApp ? ». Si l'agent n'a **pas** les outils → il n'est
+  pas branché : appliquer « Brancher Claude Desktop / Cowork » ci-dessus, puis reprendre.
+- ✅ Franchie quand `whatsapp_status` renvoie un JSON (et non « je n'ai pas cet outil »).
 
-**Ce qu'il faut regarder** — dans le JSON renvoyé par `whatsapp_status`, le champ
-**`grantConsent`**. Deux valeurs possibles, et une seule mot-clé à repérer :
+### Phase A — statut & mode de consentement *(le relevé décisif, 2 min)*
 
-| Valeur du champ `grantConsent` | Ce que ça prouve |
+Prompt : `Quel est le statut de la connexion WhatsApp ?` → `whatsapp_status`.
+
+Regarder le champ **`grantConsent`**. **Trois** valeurs possibles (Touch ID est le défaut
+depuis l'ADR-0003) :
+
+| Valeur de `grantConsent` | Ce que ça prouve |
 |---|---|
-| `"élicitation (formulaire rédigé par le serveur, hors de portée du LLM)"` | ✅ Le client **supporte** l'élicitation. La garantie ADR-0002 est active sur ce client. |
-| `"permissions du client MCP (le client ne supporte pas l'élicitation)"` | ⚠️ Le client **ne supporte pas** l'élicitation. Sur ce client, `allowlist.json` est le **seul** contrôle — voir « Interprétation » plus bas. |
+| `Touch ID (présence physique — hiérarchie ADR-0003)` | ✅ Le consentement est une **présence physique**. Le LLM ne peut ni la voir ni la simuler. Garantie la plus forte. |
+| `élicitation (formulaire rédigé par le serveur, hors de portée du LLM)` | ✅ Le client **supporte** l'élicitation. Le formulaire échappe au LLM (garantie ADR-0002). |
+| `permissions du client MCP (le client ne supporte pas l'élicitation)` | ⚠️ Ni Touch ID ni élicitation. `allowlist.json` est alors le **seul** contrôle → fiche 0008. |
 
-**Résultat attendu :** `connected: true`, `readOnly: true`, et le champ `grantConsent`
-présent. **Note sa valeur dans le tableau du relevé.**
+Assertions :
 
-> Ce seul champ tranche la question restée ouverte des ADR-0001/0002 pour le client testé —
-> sans même avoir à tenter un grant.
+- [ ] `connected: true` et `readOnly: true`.
+- [ ] `grantConsent` présent — **noter sa valeur** dans le relevé.
+- [ ] `session: "aucune session"` et `activeSessions` = un nombre (jamais le contenu d'une session).
 
----
+> Ce seul champ tranche l'essentiel pour le client testé, sans même tenter un grant.
 
-## Test B — Refus hors plafond
+### Phase B — refus hors plafond *(contrôle dur)*
 
-**Prompt à coller** (remplace le placeholder) :
+Prompt : `Autorise le groupe WhatsApp « «GROUPE_HORS_PLAFOND» » en lecture.` → `grant_channel`.
 
-```
-Autorise le groupe WhatsApp « «GROUPE_HORS_PLAFOND» » en lecture.
-```
+Assertions :
 
-**Ce qu'il faut regarder :** l'appel `grant_channel` doit **échouer**, avec un message
-contenant « **hors du plafond** ».
+- [ ] L'appel **échoue**, message contenant « **hors du plafond** » (« Seul l'humain peut
+      l'y ajouter, à la main, dans …/allowlist.json »).
+- [ ] **Aucun** Touch ID, **aucun** formulaire : le refus plafond précède tout consentement.
+- [ ] Le plafond tient **même si la Phase A a montré « permissions du client »** — c'est un
+      contrôle dur, indépendant du consentement.
 
-**Résultat attendu** — une erreur de la forme :
+### Phase C — grant au plafond & consentement humain *(le moment clé)*
 
-> « «GROUPE_HORS_PLAFOND» » est hors du plafond. Seul l'humain peut l'y ajouter, à la main,
-> dans …/allowlist.json (aucun outil ne peut le faire à sa place). Puis réessaie grant_channel.
+Prompt : `Retire l'accès au groupe « «GROUPE_AU_PLAFOND» », puis autorise-le à nouveau en lecture.`
+→ `revoke_channel` puis `grant_channel`.
 
-✅ **Le plafond tient** : le LLM ne peut pas élargir son propre périmètre, quel que soit le
-mode de permissions du client. C'est vrai **même si le Test A a montré « pas d'élicitation »** —
-le plafond est un contrôle dur, indépendant du consentement.
+Au moment du **ré-autorise**, selon la Phase A :
 
----
+- **Touch ID** → une boîte macOS Touch ID apparaît. **Toi seul** la vois et la valides.
+  - Empreinte acceptée → `grant_channel` renvoie `{ jid, subject, scope: "read", granted: true }`.
+    La provenance (`via: "touchid"`) est **persistée** mais **ne figure pas** dans cette
+    réponse : on la lit via `whatsapp_status` (fiche 0008), pas dans le retour du grant.
+  - Annulée / échouée → refus « Touch ID … Le grant n'a pas été accordé » (fail-closed).
+- **Élicitation** → un formulaire serveur Accept/Decline apparaît (le texte commence par
+  « Le LLM demande l'accès en LECTURE au groupe WhatsApp… »). La réponse ne passe **pas**
+  par le LLM. Accept → `{ jid, subject, scope: "read", granted: true }` ; Decline →
+  « Autorisation refusée par l'humain ».
+- **Permissions du client** → **aucun** formulaire serveur ; le grant est accordé
+  directement (`via: "client-permissions"`). → **c'est le cas de la fiche 0008.**
 
-## Test C — Grant au plafond & consentement humain *(le moment clé)*
+Assertions :
 
-D'abord repartir propre (le canal ne doit pas être déjà autorisé) :
+- [ ] Le comportement observé est **cohérent** avec la valeur relevée en Phase A.
+- [ ] **Noter dans le relevé** : as-tu vu (ou non) une boîte Touch ID / un formulaire ?
 
-**Prompt à coller :**
+### Phase D — session : ouverture, périmètre, TTL
 
-```
-Retire l'accès au groupe « «GROUPE_AU_PLAFOND» », puis autorise-le à nouveau en lecture.
-```
+D'abord le contrôle négatif de la session :
 
-**Ce qu'il faut regarder :** au moment du **ré-autorise**, selon le Test A —
+Prompt : `Montre-moi les derniers messages du groupe « «GROUPE_AU_PLAFOND» ».` (sans jeton)
+→ `get_recent_messages` **doit échouer** : « exige une session valide », avec l'explication
+pour en ouvrir une.
 
-- **Si `grantConsent` = élicitation :** un **formulaire rédigé par le serveur** doit
-  apparaître (Claude Code affiche « MCP server "whatsapp-group" requests your input »),
-  avec un texte qui commence par « Le LLM demande l'accès en LECTURE au groupe WhatsApp… »
-  et deux choix **Accept / Decline**. La réponse ne passe **pas** par le LLM.
-  - **Accept** → `grant_channel` renvoie `{ granted: true, scope: "read" }`.
-  - **Decline** → erreur « Autorisation refusée par l'humain … Le grant n'a pas été accordé. »
+Puis ouvrir la session :
 
-- **Si `grantConsent` = permissions du client :** **aucun formulaire serveur** n'apparaît.
-  Le grant est accordé directement (le client peut afficher sa propre confirmation d'appel
-  d'outil, mais elle est cadrée par le LLM, pas par le serveur). → **c'est exactement le
-  cas de la fiche 0008.**
+Prompt : `Ouvre une session de lecture sur le groupe « «GROUPE_AU_PLAFOND» ».` → `session_open`.
 
-**Résultat attendu :** cohérent avec la valeur relevée au Test A. **Note dans le tableau si
-tu as vu, ou non, le formulaire serveur.**
+Le consentement de session est **fail-closed**, à la différence du grant : ouvrir une
+session crée un périmètre neuf, elle exige une garantie forte (fiche 20260902223310499).
 
----
+- **Touch ID** ou **élicitation** (selon Phase A) → un **second** consentement est demandé
+  (capter un canal et ouvrir une session sont **deux gestes distincts**). Accepté → l'appel
+  renvoie un **jeton** et une échéance.
+- **Permissions du client** (strong-auth OFF **et** pas d'élicitation) → `session_open`
+  **REFUSE** : « aucun consentement vérifiable n'est disponible, la session n'est pas
+  ouverte ». **Pas** de repli « permissions client » ici (contrairement au grant, fiche
+  0008). Les Phases D–E **ne peuvent pas** aboutir dans ce mode : réactive le drapeau
+  strong-auth (Touch ID, ON par défaut) pour les jouer, ou note que ce client s'arrête au grant.
 
-## Test D — Lecture E2E
+Vérifier le périmètre : `Quel est le statut de ma session ?` en passant le jeton →
+`whatsapp_status` avec `session:<jeton>` affiche `{ expiresAt, channels:[…] }`.
+
+Assertions :
+
+- [ ] Sans jeton, `get_recent_messages` est **refusé** (et explique comment ouvrir une session).
+- [ ] Touch ID/élicitation → `session_open` demande le consentement ; jeton obtenu, `expiresAt` ≈ 8 h, `channels` corrects.
+- [ ] Permissions du client → `session_open` **refuse** (fail-closed) ; le parcours session s'arrête ici.
+
+### Phase E — lecture E2E (via la session)
 
 1. **Depuis ton téléphone**, poste un message reconnaissable dans `«GROUPE_AU_PLAFOND»`
-   (ex. « test E2E <heure> »).
-2. **Prompt à coller :**
+   (ex. « test E2E <heure> »), et attends quelques secondes.
+2. Prompt : `Avec mon jeton de session, montre les derniers messages de « «GROUPE_AU_PLAFOND» ».`
+   → `get_recent_messages` (jeton porté).
 
-   ```
-   Montre-moi les derniers messages du groupe « «GROUPE_AU_PLAFOND» ».
-   ```
+Assertions :
 
-**Ce qu'il faut regarder :** `get_recent_messages` renvoie une liste où ton message
-apparaît (`text`, `from`, `at`).
+- [ ] Ton message apparaît (`text`, `from`, `at`). ✅ ingestion → mémoire → lecture, de bout en bout.
 
-**Résultat attendu :** le message posté est présent. ✅ La chaîne ingestion → mémoire →
-lecture fonctionne de bout en bout.
+> Pas là tout de suite ? L'ingestion se fait à la connexion + en direct. Attends quelques
+> secondes, ou vérifie `messagesBuffered` dans `whatsapp_status`.
 
-> Si le message n'apparaît pas tout de suite : l'ingestion se fait à la connexion + en
-> direct. Attends quelques secondes et recommande, ou vérifie `messagesBuffered` dans
-> `whatsapp_status`.
+### Phase F — contrôles négatifs consolidés *(les barrières tiennent)*
 
----
+Chaque cas **doit échouer**, et **aucun** ne doit déclencher Touch ID/élicitation (les
+refus précèdent le consentement) :
+
+- [ ] `get_recent_messages` avec un jeton **valide** mais un canal **hors du périmètre** de
+      la session → refusé.
+- [ ] `get_recent_messages` **sans** jeton → refusé (déjà vu Phase D — le redire dans le bilan).
+- [ ] Re-tenter le grant **hors plafond** (Phase B) → refusé, sans consentement déclenché.
+
+### Phase F bis — couche profil *(optionnel, fiche 0004)*
+
+Si un `WHATSAPP_PROFILE` est actif : `list_groups` renvoie `hiddenOutsideProfile > 0` pour
+les groupes **au plafond mais hors du profil**, avec une note qui dit d'éditer le profil
+(pas le plafond).
+
+- [ ] Un groupe au plafond mais hors profil n'apparaît **pas** dans `list_groups` (seul son nombre).
+
+### Phase G — nettoyage (réversible, sur accord)
+
+- `session_close` avec le jeton → ferme la session. **Aucun** consentement supplémentaire
+  (réduire est toujours permis). À défaut, la session expire seule après son TTL (8 h).
+- `revoke_channel « «GROUPE_AU_PLAFOND» »` — **obligatoire** si le run a créé ou recréé ce
+  grant : un grant est **persistant** (`settings.json`, survit aux redémarrages) et
+  **n'expire pas**. Sans révocation, le groupe reste autorisé après le test.
+
+L'agent ne supprime rien côté téléphone ni sur disque : le serveur est en lecture seule.
+
+## Rejouabilité — le test est idempotent
+
+- **Aucune écriture WhatsApp** : rien à recompter d'un run à l'autre.
+- **Sessions** expirées entre deux runs : re-`session_open` est normal (TTL). Les **grants**,
+  eux, **persistent** — un canal capté le reste jusqu'à `revoke_channel` (Phase G).
+- **Le message de test** reste dans le groupe ; un horodatage dans le texte évite toute
+  confusion entre deux runs.
+- **`./auth` partagé** : un seul client à la fois (Phase Prérequis n°2).
+
+## Critères de réussite
+
+- [ ] Mode de consentement (`grantConsent`) relevé pour le client.
+- [ ] Refus hors plafond constaté, sans consentement déclenché.
+- [ ] Grant au plafond : consentement humain observé (Touch ID / formulaire / aucun — noté).
+- [ ] `get_recent_messages` refusé sans jeton de session.
+- [ ] `session_open` : en Touch ID/élicitation, consentement observé + jeton + `expiresAt` + périmètre corrects ; en « permissions du client », **refus** fail-closed (attendu).
+- [ ] Lecture E2E réussie via la session (sauf mode « permissions du client », où la session ne s'ouvre pas).
+- [ ] Aucun consentement déclenché sur un cas refusé (hors plafond, hors périmètre).
+- [ ] (optionnel) Groupe hors profil masqué dans `list_groups`.
 
 ## Interprétation — que faire du résultat
 
-**Cas 1 — `grantConsent` = élicitation (Test C montre le formulaire serveur).**
-La fiche **0001** est bouclée pour ce client : coche le dernier critère et reporte le relevé
-dans les Notes de la fiche. La fiche **0008** perd son urgence (le repli fail-open ne concerne
-alors que d'hypothétiques clients sans élicitation).
-
-**Cas 2 — `grantConsent` = permissions du client (aucun formulaire serveur au Test C).**
-Alors, sur ce client :
-- `allowlist.json` est ton **seul** garde-fou. Tout ce qui y est listé est lisible par le LLM
-  **sans qu'on te demande rien** (`src/consent.js` accorde le grant en repli, `via: "client-permissions"`).
-- **Garde le plafond serré** : n'y mets que les groupes que tu acceptes de voir passer dans un
-  transcript LLM.
-- Reporte le constat dans la fiche **0008** : c'est la donnée qui manquait pour trancher entre
+- **Touch ID vu** → la garantie la plus forte tient sur ce client (ADR-0003). Le
+  consentement est une présence physique, hors de portée du LLM. Coche les critères de
+  la fiche 0001 pour ce client.
+- **Formulaire d'élicitation vu** → la garantie ADR-0002 tient. Idem, fiche 0001.
+- **Ni l'un ni l'autre (« permissions du client »)** → sur ce client, `allowlist.json` est
+  ton **seul** garde-fou : n'y mets que des groupes que tu acceptes de voir dans un
+  transcript LLM. **Reporte-le dans la fiche 0008** — c'est la donnée qui tranche entre
   fail-open documenté / fail-closed / fail-open journalisé.
 
-Dans **les deux cas**, le Test B (refus hors plafond) doit passer : si un canal hors plafond
-était autorisé, c'est un bug de sécurité à remonter immédiatement.
-
----
+Dans **tous les cas**, le refus hors plafond (Phase B) doit passer. S'il ne passe pas,
+c'est un bug de sécurité à remonter **immédiatement**.
 
 ## Où reporter
 
-- Cocher les critères et coller le relevé dans [features/0001](../../features/0001-valider-adr-0002-conditions-reelles.md) (Notes).
-- Si **Cas 2** sur un client réel : l'écrire dans [features/0008](../../features/0008-repli-sans-elicitation-fail-open.md) (Contexte).
+- Cocher les critères « à mesurer » et coller le relevé dans
+  [features/0001](../../features/0001-valider-adr-0002-conditions-reelles.md) (Notes),
+  en séparant ce que l'**agent** a observé via les outils de ce que **toi** tu as rapporté.
+- Cas « permissions du client » sur un client réel → l'écrire dans
+  [features/0008](../../features/done/0008-repli-sans-elicitation-fail-open.md).
 - Fait notable côté sécurité → mémoire projet (`whatsapp-mcp-security-model`).
 
----
+## Dépannage
 
-## Annexe — Prompt pour piloter le test depuis une session cliente
+| Symptôme | Cause | Remède |
+|---|---|---|
+| L'ajout Desktop « ne tient pas » | Config éditée app **ouverte** (réécrite en direct) | Cmd-Q, éditer, rouvrir |
+| `node introuvable` au lancement Desktop | PATH minimal, sans nvm/Homebrew | `command` = chemin absolu (`/opt/homebrew/bin/node`) |
+| Déconnexion / QR redemandé / erreur 440 | Deux process sur le même `./auth` | `npm run stop`, un seul client à la fois |
+| Aucune boîte Touch ID sur grant/session | strongauth désarmé, ou Mac sans capteur, ou client sans élicitation | Vérifier `grantConsent` (Phase A) ; c'est le relevé, pas un bug |
+| Touch ID apparaît sur un cas **refusé** | Régression : le consentement passerait avant le contrôle plafond/périmètre | Test échoué : ouvrir une fiche backlog |
+| `get_recent_messages` refusé | Pas de session, ou canal hors périmètre | `session_open` d'abord ; canal dans le périmètre |
+| Le message posté n'apparaît pas | Ingestion en cours | Attendre quelques s ; vérifier `messagesBuffered` |
+| L'agent propose de consentir lui-même | Interdit | Touch ID / formulaire = geste **humain**, toujours |
 
-À coller dans la session du client testé (Desktop, Cowork, ou Code). Réglages recommandés,
-à faire **dans l'UI** du client avant de coller (le texte du prompt ne peut pas les changer) :
-**modèle Opus 4.8**, **réflexion étendue désactivée**. Sur cette tâche, plus d'effort ≠ mieux :
-ce qu'on veut, c'est une session qui s'arrête et pose la question, pas une qui comble les trous.
+## Limites connues
+
+- **Pas de test d'envoi** : le serveur est en lecture seule, aucun `send` à valider.
+- **Un seul client à la fois** sur `./auth` (capture au fil de l'eau, décision du 18/07).
+- **Touch ID** exige un Mac avec capteur (ou Watch / mot de passe de session en repli macOS).
+- **Prouver la présence humaine ne s'automatise pas** — d'où ce protocole manuel ; le reste
+  (contrats, refus, formes) est couvert par la suite `npm test`.
+
+## Annexe — Prompt pour piloter le test
+
+À coller dans la session du client testé. Réglages à faire **dans l'UI** du client avant de
+coller (le texte du prompt ne peut pas les changer) : **modèle Opus 4.8**, **réflexion
+étendue désactivée**. Sur cette tâche, plus d'effort ≠ mieux : on veut une session qui
+s'arrête et pose la question, pas une qui comble les trous.
 
 ```text
-[Config à régler dans l'UI du client AVANT de coller : modèle Opus 4.8, réflexion étendue désactivée. Non modifiable par ce texte.]
+[Config à régler dans l'UI AVANT de coller : modèle Opus 4.8, réflexion étendue désactivée. Non modifiable par ce texte.]
 
-Tu es mon copilote de TEST MANUEL du serveur MCP « whatsapp-group ». On valide que le consentement humain fonctionne en conditions réelles. Déroule les étapes UNE PAR UNE, dans l'ordre, et ARRÊTE-TOI à chaque point de contrôle pour me poser la question puis attendre ma réponse.
+Tu es mon copilote de TEST MANUEL du serveur MCP « whatsapp-group » (LECTURE SEULE). On valide que le consentement humain fonctionne en conditions réelles. Déroule les phases UNE PAR UNE, dans l'ordre, et ARRÊTE-TOI à chaque point de contrôle pour me poser la question puis attendre ma réponse.
 
 RÈGLES ABSOLUES (ne les enfreins jamais) :
-1. Tu ne vois NI le dialogue de consentement du client, NI mon téléphone. Pour tout ce que moi seul peux observer, tu me le DEMANDES et tu attends ma réponse. Tu n'inventes JAMAIS ma réponse, tu ne supposes jamais qu'un formulaire est apparu, tu ne supposes jamais qu'un message a été posté.
-2. Une étape à la fois. Après chaque appel d'outil, montre-moi le champ pertinent du résultat, puis STOP et attends-moi.
-3. N'accepte, ne valide, ne « passe à la suite » jamais tout seul. C'est moi qui autorise chaque étape.
-4. Si un outil renvoie une erreur, colle-moi le texte EXACT de l'erreur. Ne réessaie pas en silence.
-5. Ce serveur est en lecture seule. Tu n'envoies aucun message WhatsApp (l'outil n'existe pas). Tu ne modifies pas allowlist.json.
+1. Tu ne vois NI la boîte Touch ID, NI le dialogue de consentement du client, NI mon téléphone. Pour tout ce que moi seul peux observer, tu me le DEMANDES et tu attends. Tu n'inventes JAMAIS ma réponse ; tu ne supposes jamais qu'une boîte Touch ID est apparue, qu'un formulaire a été vu, ni qu'un message a été posté.
+2. Une étape à la fois. Après chaque appel d'outil, montre-moi le champ pertinent, puis STOP.
+3. Tu ne consens JAMAIS toi-même : Touch ID et élicitation sont MES gestes. Tu n'acceptes, ne valides, ne « passes à la suite » jamais seul.
+4. Si un outil renvoie une erreur, colle-moi le texte EXACT. Ne réessaie pas en silence.
+5. Serveur en lecture seule : tu n'envoies aucun message (l'outil n'existe pas), tu ne modifies pas allowlist.json.
 
 — Phase 0 (branchement) —
-AVANT tout, vérifie que tu as bien accès aux outils du serveur « whatsapp-group » : whatsapp_status, list_groups, grant_channel, revoke_channel, get_recent_messages.
-• Si tu NE les as PAS : n'essaie rien d'autre. Dis-moi que le MCP n'est pas branché dans ce client, et donne-moi la marche à suivre pour Claude Desktop :
-   1. Quitter COMPLÈTEMENT Desktop (Cmd-Q) — l'app réécrit sa config en direct, une édition faite app ouverte est effacée.
-   2. Éditer « ~/Library/Application Support/Claude/claude_desktop_config.json » et fusionner, sous la clé mcpServers (sans toucher aux serveurs déjà présents), le bloc :
-        "whatsapp-group": {
-          "command": "/opt/homebrew/bin/node",
-          "args": ["/CHEMIN/ABSOLU/VERS/whatsapp-group-mcp/src/index.js"]
-        }
-   3. Rouvrir Desktop.
-  Rappelle-moi : « command » doit être un chemin absolu vers node (Desktop n'a ni nvm ni Homebrew dans son PATH, un « node » nu échouerait) ; PAS de WHATSAPP_AUTH_DIR (Desktop partage le ./auth déjà appairé par Claude Code) ; et un seul client à la fois tient la session ./auth (sinon 440) — donc couper les serveurs Code avec « npm run stop » avant de tester dans Desktop. Ensuite STOP.
-• Si tu les as : dis « MCP branché » et passe au Test A.
+Vérifie que tu as les outils : whatsapp_status, list_groups, grant_channel, revoke_channel, session_open, get_recent_messages, session_close.
+• Si NON : dis que le MCP n'est pas branché dans ce client et donne-moi la marche à suivre Desktop : (1) Quitter COMPLÈTEMENT Desktop (Cmd-Q) — l'app réécrit sa config en direct ; (2) éditer « ~/Library/Application Support/Claude/claude_desktop_config.json », fusionner sous mcpServers le bloc { "whatsapp-group": { "command": "/opt/homebrew/bin/node", "args": ["/CHEMIN/ABSOLU/VERS/whatsapp-group-mcp/src/index.js"] } } ; (3) rouvrir. Rappelle : chemin absolu vers node (pas de nvm/Homebrew dans le PATH de Desktop) ; pas de WHATSAPP_AUTH_DIR ; un seul client à la fois sur ./auth (sinon 440) → « npm run stop » avant. Puis STOP.
+• Si OUI : dis « MCP branché » et passe à la Phase A.
 
-— Test A (statut & mode de consentement) —
-Appelle whatsapp_status. Vérifie « connected: true » (sinon dis-moi d'appairer via npm start, et stop).
-Montre-moi la valeur EXACTE du champ « grantConsent ». Puis dis-moi lequel de ces deux cas s'applique :
-  • contient « élicitation » → le client SUPPORTE l'élicitation (garantie ADR-0002 active).
-  • contient « permissions du client MCP » → le client ne la supporte PAS (allowlist.json sera le seul contrôle).
-Note-le. STOP, attends mon « ok ».
+— Phase A (statut & mode de consentement) —
+Appelle whatsapp_status. Vérifie connected:true et readOnly:true (sinon dis-moi d'appairer via npm start, et stop). Montre-moi la valeur EXACTE de « grantConsent » et dis lequel des 3 cas s'applique : « Touch ID » (présence physique), « élicitation » (formulaire serveur), ou « permissions du client » (allowlist seul). Note-le. STOP.
 
-— Préparation des noms de groupes —
-Appelle list_groups et montre-moi les groupes du plafond. Demande-moi :
-  (a) le nom d'UN groupe DU plafond que je veux utiliser pour le test ;
-  (b) le nom d'un groupe DONT JE SUIS MEMBRE mais ABSENT du plafond (il n'apparaîtra pas dans list_groups, c'est normal — c'est moi qui te le donne).
-STOP, attends mes deux réponses.
+— Préparation des groupes —
+Appelle list_groups et montre-moi les groupes du plafond. Demande-moi : (a) UN groupe DU plafond pour le test ; (b) un groupe DONT JE SUIS MEMBRE mais ABSENT du plafond (il n'apparaît pas dans list_groups — c'est moi qui te le donne). STOP.
 
-— Test B (refus hors plafond) —
-Appelle grant_channel sur le groupe HORS plafond que je t'ai donné. Attendu : une ERREUR contenant « hors du plafond ». Montre-moi le message exact et confirme que c'est bien un refus. STOP, attends mon « ok ».
+— Phase B (refus hors plafond) —
+Appelle grant_channel sur le groupe HORS plafond. Attendu : ERREUR contenant « hors du plafond », SANS aucune boîte Touch ID ni formulaire. Montre-moi le message exact. STOP.
 
-— Test C (consentement humain — le moment clé) —
-Annonce-moi d'abord ce qui va se passer : tu vas retirer puis ré-autoriser le groupe DU plafond ; SI mon client supporte l'élicitation, un formulaire rédigé par le serveur va apparaître DANS le client, et c'est MOI qui dois le lire et cliquer Accept ou Decline.
-Puis appelle revoke_channel, puis grant_channel sur ce groupe.
-Ensuite DEMANDE-MOI, sans rien présumer :
-  « As-tu vu un formulaire s'afficher ? Si oui, recopie son texte et dis-moi quels boutons il proposait. Si non, dis-le. »
-Attends ma réponse. Ne conclus rien avant. STOP.
+— Phase C (grant au plafond — consentement) —
+Annonce ce qui va se passer : tu vas retirer puis ré-autoriser le groupe DU plafond ; SELON la Phase A, une boîte Touch ID OU un formulaire serveur va apparaître, et c'est MOI qui dois l'accepter/refuser. Appelle revoke_channel puis grant_channel. Puis DEMANDE-MOI : « As-tu vu une boîte Touch ID ? un formulaire ? recopie ce que tu as vu et les boutons proposés. Sinon, dis-le. » Ne conclus rien avant ma réponse. STOP.
 
-— Test D (lecture E2E) —
-Demande-moi de poster MAINTENANT un message reconnaissable (ex. « test E2E » + l'heure) dans le groupe du plafond, depuis mon TÉLÉPHONE, et d'attendre quelques secondes. Attends que je te dise « c'est posté ».
-Ensuite appelle get_recent_messages sur ce groupe et montre-moi si mon message apparaît (texte, expéditeur, heure). STOP.
+— Phase D (session : ouverture, périmètre, TTL) —
+D'abord, appelle get_recent_messages SANS jeton sur le groupe du plafond : attendu = REFUS qui explique d'ouvrir une session. Montre-le. Puis appelle session_open sur ce groupe. DEUX cas, selon la Phase A :
+• Touch ID ou élicitation → un 2e consentement est demandé ; DEMANDE-MOI ce que j'ai vu, puis montre-moi le jeton et l'échéance, rappelle whatsapp_status avec ce jeton et montre le périmètre (expiresAt, channels).
+• « permissions du client » (strong-auth OFF ET pas d'élicitation) → session_open REFUSE, SANS jeton (« aucun consentement vérifiable… la session n'est pas ouverte »). N'invente PAS de jeton : consigne ce refus comme le résultat ATTENDU, SAUTE les Phases E–F (impossibles sans jeton) et enchaîne directement sur la Phase G puis la synthèse.
+STOP.
+
+— Phase E (lecture E2E via session) —
+Demande-moi de poster MAINTENANT un message reconnaissable (ex. « test E2E » + l'heure) dans le groupe du plafond, depuis mon TÉLÉPHONE, et d'attendre quelques secondes. Attends mon « c'est posté ». Ensuite appelle get_recent_messages EN PORTANT le jeton et montre si mon message apparaît (texte, expéditeur, heure). STOP.
+
+— Phase F (contrôles négatifs) —
+Tente get_recent_messages avec le jeton mais un canal HORS périmètre : attendu = refus. Rappelle que sans jeton c'est aussi un refus. Aucun de ces refus ne doit déclencher Touch ID/formulaire. Montre-moi les messages exacts. STOP.
+
+— Phase G (nettoyage — OBLIGATOIRE) —
+Reviens à l'état de départ. Si une session a été ouverte en Phase D, appelle session_close avec le jeton. Puis, comme la Phase C a (ré)accordé un grant PERSISTANT (il n'expire pas, il survit aux redémarrages), appelle revoke_channel sur le groupe DU plafond pour le retirer. Montre-moi les deux résultats. (Si ce run n'a créé aucun grant, dis-le et ne révoque rien.) STOP.
 
 — Synthèse —
-Remplis ce tableau avec ce qui a été RÉELLEMENT observé (et rien d'autre) :
-  | Test | Observé | Attendu | Verdict |
-Puis donne le verdict global :
-  • Cas 1 (élicitation + formulaire vu au Test C) → fiche 0001 bouclée pour ce client.
-  • Cas 2 (permissions client + aucun formulaire) → allowlist.json est le seul garde-fou ; à reporter dans la fiche 0008.
-Termine par un court paragraphe « à recopier dans la fiche » — en séparant clairement ce que TU as observé via les outils de ce que MOI je t'ai rapporté.
+Remplis : | Phase | Observé (par toi via l'outil / par moi) | Attendu | Verdict |. Puis le verdict global : Touch ID vu OU formulaire vu → fiche 0001 cochée pour ce client ; « permissions du client » + aucun formulaire → allowlist seul garde-fou → fiche 0008. Termine par un paragraphe « à recopier dans la fiche », en SÉPARANT ce que TU as observé via les outils de ce que MOI je t'ai rapporté.
 ```
 
-Rappel du pré-vol (à faire dans un terminal **avant** d'ouvrir le client, le prompt ne peut
-pas le faire) : `npm run stop`.
+Rappel du pré-vol (terminal, **avant** d'ouvrir le client — le prompt ne peut pas le faire) :
+`npm run stop`.
