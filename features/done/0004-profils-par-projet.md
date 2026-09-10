@@ -5,9 +5,9 @@ type: feature
 priority: P2
 version:
 epic: "20260902223310355"
-status: ready
+status: shipped
 ready: 2026-09-10
-pr:
+pr: "#34"
 created: 2026-07-18
 ---
 
@@ -45,9 +45,9 @@ Limite connue : deux projets à profils ouverts en même temps = toujours la con
 ### Rattachement à l'épic « accès par session » (2026-09-03)
 
 Fiche rattachée à l'épic
-[20260902223310355](20260902223310355_acces-whatsapp-par-session.md). Le profil est la
+[20260902223310355](../20260902223310355_acces-whatsapp-par-session.md). Le profil est la
 couche **statique** (déclarée par le lanceur, par projet) ; la fiche
-[20260902223310499](done/20260902223310499_droits-par-session-jeton-porte.md) ajoute la couche
+[20260902223310499](20260902223310499_droits-par-session-jeton-porte.md) ajoute la couche
 **par conversation** (jeton porté). Périmètre effectif = plafond ∩ profil ∩ session.
 Limite constatée qui justifie les deux couches : sous Desktop/Cowork, toutes les
 conversations partagent une connexion — un profil par process ne les distingue pas.
