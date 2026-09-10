@@ -29,7 +29,7 @@
 
 | # | Titre | Type | Prio | Épic | Statut | PR |
 |---|-------|------|------|------|--------|----|
-| [0001](0001-valider-adr-0002-conditions-reelles.md) | Valider l'ADR-0002 en conditions réelles (plafond, élicitation, lecture E2E) | chore | P0 | 20260902223310355 | 💡 idea |  |
+| [0001](0001-valider-adr-0002-conditions-reelles.md) | Valider le consentement humain sur Desktop/Cowork (Touch ID, élicitation, session) | chore | P0 | 20260902223310355 | 💡 idea |  |
 | [0007](0007-elicitation-signee-touch-id.md) | Élicitation signée — consentement par authentification physique (Touch ID / Secure Enclave) | feature | P3 |  | 💡 idea |  |
 | [20260902223310640](20260902223310640_emballage-plugin-cowork-marketplace.md) | Emballage plugin Claude (marketplace elzinko) — skills + .mcp.json pour Cowork et Code | feature | P3 | 20260902223310355 | 💡 idea |  |
 
