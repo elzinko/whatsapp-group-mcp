@@ -17,6 +17,7 @@ import {
 import { config } from "./config.js";
 import { Settings } from "./settings.js";
 import { Allowlist } from "./allowlist.js";
+import { Profiles } from "./profiles.js";
 import { buildConfirmGrant, buildGrantConsent, buildSessionConsent } from "./consent.js";
 import { readStrongAuthEnabled } from "./strongauth.js";
 import { checkPresence } from "./touchid.js";
@@ -27,7 +28,10 @@ const settings = new Settings(config.settingsFile).load();
 // Le plafond (ADR-0002). Au tout premier démarrage, il est généré depuis les grants
 // existants (migration sans régression) ; ensuite seul l'humain l'édite, à la main.
 const allowlist = new Allowlist(config.allowlistFile).bootstrap(settings);
-const wa = new WhatsAppClient(config, settings, allowlist);
+// Le profil (fiche 0004, ADR-0006) : seconde borne, opt-in par projet. Absent
+// (ni profiles.json ni WHATSAPP_PROFILE) -> couche inerte, comportement ADR-0002.
+const profile = new Profiles(config.profilesFile).load();
+const wa = new WhatsAppClient(config, settings, allowlist, profile);
 // Registre des sessions de lecture (fiche 20260902223310499). Filtre appliqué en
 // AMONT du domaine, dans cette couche application : whatsapp.js ne le connaît pas.
 const sessions = new SessionRegistry(config.sessionsDir, { defaultTtlMs: config.sessionTtlMs });

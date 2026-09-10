@@ -109,7 +109,7 @@ export function mayWipeAuth(ours, rawOnDisk) {
 }
 
 export class WhatsAppClient {
-  constructor(config, settings, allowlist) {
+  constructor(config, settings, allowlist, profile) {
     this.config = config;
     this.settings = settings; // Settings : les canaux autorisés (grants)
     // Le PLAFOND (ADR-0002) : borne les grants, l'ingestion et la lecture.
@@ -120,6 +120,15 @@ export class WhatsAppClient {
       match: () => null,
       load() { return this; },
       refresh() { return this; },
+    };
+    // Le PROFIL (fiche 0004) : seconde borne, au même point que le plafond.
+    // Stub INERTE par défaut (couche opt-in, ADR-0006) : les clients construits
+    // sans 4e argument gardent le comportement ADR-0002 inchangé.
+    this.profile = profile || {
+      exists: false,
+      permits: () => false,
+      refresh() { return this; },
+      load() { return this; },
     };
     // Consentement humain avant chaque grant, injecté par index.js (élicitation MCP
     // quand le client la supporte). Absent = pas de cérémonie supplémentaire.
@@ -183,11 +192,30 @@ export class WhatsAppClient {
     return true;
   }
 
+  // Le PROFIL couvre-t-il ce canal ? Seconde borne, au même point que le plafond
+  // (fiche 0004, ADR-0006). Opt-in : ni profiles.json ni WHATSAPP_PROFILE -> couche
+  // INERTE (tout ce qui passe le plafond passe aussi le profil). Dès que l'un des
+  // deux existe -> fail closed : profil non déclaré ou inconnu -> rien.
+  _profileHas(jid) {
+    this.profile.refresh();
+    const declared = String(this.config.profile || "").trim();
+    const active = declared !== "" || this.profile.exists;
+    if (!active) return true; // profils non configurés : couche inerte (ADR-0002)
+    if (!declared) return false; // configurés mais process non déclaré : RIEN
+    const subject = this.settings.grants.get(jid)?.subject ?? this.knownGroups.get(jid);
+    return this.profile.permits(declared, jid, subject);
+  }
+
+  // Le périmètre effectif : plafond ET profil. Deux bornes au même point.
+  _inScope(jid) {
+    return this._ceilingHas(jid) && this._profileHas(jid);
+  }
+
   // 1re barrière : rien de ce qui n'est pas explicitement autorisé n'entre,
-  // ni en mémoire ni sur disque. Grant ET plafond exigés (ADR-0002).
+  // ni en mémoire ni sur disque. Grant ET plafond/profil exigés (ADR-0002/0006).
   _ingest(waMessage) {
     const jid = waMessage?.key?.remoteJid;
-    if (!jid || !this.settings.has(jid) || !this._ceilingHas(jid)) return;
+    if (!jid || !this.settings.has(jid) || !this._inScope(jid)) return;
     const rec = toRecord(waMessage);
     if (rec.id) this._storeFor(jid).add(rec);
   }
@@ -415,7 +443,7 @@ export class WhatsAppClient {
         this.settings.grant(g.jid, current);
         log(`Groupe renommé : « ${g.subject} » -> « ${current} »`);
       }
-      if (!this._ceilingHas(g.jid)) {
+      if (!this._inScope(g.jid)) {
         log(
           `Grant SUSPENDU (hors plafond) : « ${current || g.subject || g.jid} » — ` +
             `réintègre-le à la main dans ${this.config.allowlistFile} pour le réactiver.`
@@ -486,7 +514,7 @@ export class WhatsAppClient {
     const groups = [];
     let hidden = 0;
     for (const g of Object.values(all)) {
-      if (!this._ceilingHas(g.id)) {
+      if (!this._inScope(g.id)) {
         hidden += 1;
         continue;
       }
@@ -518,7 +546,7 @@ export class WhatsAppClient {
     const subject = this.knownGroups.get(jid);
 
     this.allowlist.refresh(); // fraîcheur : une édition manuelle s'applique sans redémarrage
-    if (!this._ceilingHas(jid)) {
+    if (!this._inScope(jid)) {
       throw new Error(
         `« ${subject} » est hors du plafond. Seul l'humain peut l'y ajouter, à la main, ` +
           `dans ${this.config.allowlistFile} (aucun outil ne peut le faire à sa place). ` +
@@ -560,14 +588,14 @@ export class WhatsAppClient {
   recentFor(channel, limit = 50) {
     // Un grant sorti du plafond (édition manuelle de allowlist.json) est SUSPENDU :
     // il reste dans settings.json mais ne sert plus rien tant qu'il n'y revient pas.
-    const granted = this.settings.list().filter((g) => this._ceilingHas(g.jid));
+    const granted = this.settings.list().filter((g) => this._inScope(g.jid));
     let jid;
     if (channel) {
       jid = this._resolveToJid(channel);
       if (!this.settings.has(jid)) {
         throw new Error(`Canal non autorisé : ${jid}. Utilise 'grant_channel' d'abord.`);
       }
-      if (!this._ceilingHas(jid)) {
+      if (!this._inScope(jid)) {
         throw new Error(
           `Canal suspendu : « ${this.settings.grants.get(jid)?.subject || jid} » est sorti du ` +
             `plafond. Seul l'humain peut le réintégrer, à la main, dans ${this.config.allowlistFile}.`
@@ -605,7 +633,7 @@ export class WhatsAppClient {
         scope: g.scope,
         // suspended = granté mais sorti du plafond : inerte tant que l'humain ne le
         // réintègre pas à la main dans allowlist.json.
-        suspended: !this._ceilingHas(g.jid) || undefined,
+        suspended: !this._inScope(g.jid) || undefined,
         messagesBuffered: this.stores.get(g.jid)?.size() ?? 0,
         // Provenance du consentement (fiche 0008) : dit sans ambiguïté si un humain
         // a confirmé (élicitation/Touch ID) ou si le client l'a auto-accordé sans
