@@ -323,10 +323,11 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           return fail(e?.message || String(e));
         }
 
-        // Vérification ⊆ grants ∩ plafond AVANT tout prompt (décision 4 de la fiche) :
-        // le reçu du consentement doit dire exactement ce qu'il accorde.
+        // Vérification ⊆ grants ∩ plafond ∩ profil AVANT tout prompt (décision 4 de la
+        // fiche + profil ADR-0006) : le reçu du consentement doit dire exactement ce qu'il
+        // accorde, et le profil borne session_open comme les autres chemins (Codex PR #34).
         wa.allowlist.refresh();
-        const denied = pairs.filter(({ jid }) => !wa.settings.has(jid) || !wa._ceilingHas(jid));
+        const denied = pairs.filter(({ jid }) => !wa.settings.has(jid) || !wa._inScope(jid));
         if (denied.length > 0) {
           return fail(
             `Hors grants ∩ plafond, refusé avant toute demande de consentement : ` +

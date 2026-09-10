@@ -264,6 +264,17 @@ try {
     "status : aucun grant hors profil divulgué (ni 222 ni 333)",
     !st12.some((g) => g.jid === "222@g.us" || g.jid === "333@g.us")
   );
+  // #5 (Codex #34) : session_open filtre par `settings.has(jid) && _inScope(jid)`. Un grant
+  // AU plafond mais HORS profil (222) doit tomber côté refusé ; un grant DANS le profil (111)
+  // doit passer. On vérifie le prédicat exact que session_open utilise désormais.
+  check(
+    "session_open filter : grant hors profil (222) serait REFUSÉ",
+    wa12.settings.has("222@g.us") === true && wa12._inScope("222@g.us") === false
+  );
+  check(
+    "session_open filter : grant dans le profil (111) serait ADMIS",
+    wa12.settings.has("111@g.us") === true && wa12._inScope("111@g.us") === true
+  );
 
   // --- 13) listGroups distingue hors-plafond et hors-profil (Codex #34) ---
   const ceil13 = path.join(tmp, "ceil13.json");
@@ -290,6 +301,48 @@ try {
   check("listGroups : seul 111 (plafond ∩ profil) visible", menu13.groups.length === 1 && menu13.groups[0].id === "111@g.us");
   check("listGroups : 999 compté hors plafond", menu13.hiddenOutsideAllowlist === 1);
   check("listGroups : 222 compté hors profil (pas hors plafond)", menu13.hiddenOutsideProfile === 1);
+
+  // --- 14) Match par NOM sans inventaire autoritatif (knownGroups vide) -> fail closed
+  //         (Codex #34 round 2 : le MCP sert avant _refreshGroups) ---
+  const ceil14 = path.join(tmp, "ceil14.json");
+  fs.writeFileSync(ceil14, JSON.stringify({ version: 1, channels: ["111@g.us"] }));
+  const prof14 = path.join(tmp, "prof14.json");
+  fs.writeFileSync(prof14, JSON.stringify({ version: 1, profiles: { p: ["Copro"] } })); // par NOM
+  const settings14 = new Settings(path.join(tmp, "settings14.json"));
+  settings14.grant("111@g.us", "Copro", "elicitation"); // subject connu via le grant (avant tout _refreshGroups)
+  const wa14 = new WhatsAppClient(
+    { maxMessages: 10, persist: false, allowlistFile: ceil14, profile: "p" },
+    settings14,
+    new Allowlist(ceil14).load(),
+    new Profiles(prof14).load()
+  );
+  check("nom sans inventaire (knownGroups vide) -> hors scope (fail closed)", wa14._inScope("111@g.us") === false);
+  wa14.knownGroups = new Map([["111@g.us", "Copro"]]); // inventaire chargé, nom unique
+  check("nom avec inventaire unique -> in scope", wa14._inScope("111@g.us") === true);
+
+  // --- 15) grant_channel sur un canal AU plafond mais HORS profil -> conseille profiles.json
+  //         (pas allowlist.json), Codex #34 round 2 ---
+  const ceil15 = path.join(tmp, "ceil15.json");
+  fs.writeFileSync(ceil15, JSON.stringify({ version: 1, channels: ["111@g.us", "222@g.us"] }));
+  const prof15 = path.join(tmp, "prof15.json");
+  fs.writeFileSync(prof15, JSON.stringify({ version: 1, profiles: { copro: ["111@g.us"] } }));
+  const wa15 = new WhatsAppClient(
+    { maxMessages: 10, persist: false, allowlistFile: ceil15, profile: "copro", profilesFile: prof15 },
+    new Settings(path.join(tmp, "settings15.json")),
+    new Allowlist(ceil15).load(),
+    new Profiles(prof15).load()
+  );
+  wa15.state = "open";
+  wa15.sock = {
+    groupFetchAllParticipating: async () => ({ "222@g.us": { id: "222@g.us", subject: "Autre", participants: [] } }),
+  };
+  let err15 = "";
+  try {
+    await wa15.grantChannel("222@g.us");
+  } catch (e) {
+    err15 = e.message;
+  }
+  check("grant hors profil -> erreur oriente vers profiles.json, pas le plafond", /profil/i.test(err15) && err15.includes("profiles"));
 } catch (e) {
   console.error("Erreur test:", e);
   failed = true;

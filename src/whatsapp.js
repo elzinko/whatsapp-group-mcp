@@ -219,11 +219,13 @@ export class WhatsAppClient {
     const match = this.profile.match(declared, jid, subject);
     if (match === "jid") return true; // identité forte
     if (match !== "name") return false;
-    // Même garde anti-homonyme que le plafond : un nom ambigu ne suffit pas à ouvrir un
-    // profil, même quand le plafond a admis les deux JID homonymes par identité forte —
-    // sinon un admin renomme son groupe au nom du profil et s'y infiltre (Codex PR #34).
-    if (this._nameIsAmbiguous(subject)) {
-      log(`Profil « ${declared} » : « ${subject} » désigne plusieurs groupes — nom ambigu REFUSÉ.`);
+    // Un match par NOM n'est fiable que si l'inventaire des groupes est autoritatif :
+    // avant _refreshGroups (démarrage, déconnexion) knownGroups est vide et l'unicité du
+    // nom est INVÉRIFIABLE → fail closed. Inventaire chargé, un nom porté par 2+ groupes
+    // reste refusé (un admin renommerait son groupe au nom du profil pour s'y infiltrer).
+    // Seul un JID exact passe sans inventaire autoritatif (Codex PR #34, rounds 1-2).
+    if (this.knownGroups.size === 0 || this._nameIsAmbiguous(subject)) {
+      log(`Profil « ${declared} » : nom « ${subject} » non vérifiable (inventaire absent) ou ambigu — REFUSÉ.`);
       return false;
     }
     return true;
@@ -575,11 +577,20 @@ export class WhatsAppClient {
     const subject = this.knownGroups.get(jid);
 
     this.allowlist.refresh(); // fraîcheur : une édition manuelle s'applique sans redémarrage
-    if (!this._inScope(jid)) {
+    if (!this._ceilingHas(jid)) {
       throw new Error(
         `« ${subject} » est hors du plafond. Seul l'humain peut l'y ajouter, à la main, ` +
           `dans ${this.config.allowlistFile} (aucun outil ne peut le faire à sa place). ` +
           `Puis réessaie grant_channel.`
+      );
+    }
+    // Au plafond mais hors du profil actif : le conseil n'est PAS d'éditer le plafond
+    // (il y est déjà) mais le profil (Codex PR #34).
+    if (!this._profileHas(jid)) {
+      throw new Error(
+        `« ${subject} » est au plafond mais hors du profil actif` +
+          (this.config.profile ? ` « ${this.config.profile} »` : "") +
+          `. Ajoute-le à ce profil dans ${this.config.profilesFile} (il est déjà au plafond).`
       );
     }
 
