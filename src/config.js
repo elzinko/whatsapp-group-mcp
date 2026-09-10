@@ -68,6 +68,15 @@ const allowlistFile = process.env.WHATSAPP_ALLOWLIST_FILE
   ? path.resolve(projectRoot, process.env.WHATSAPP_ALLOWLIST_FILE)
   : path.join(projectRoot, "allowlist.json");
 
+// Le PROFIL (fiche 0004) : seconde borne au même point que le plafond, activée
+// par projet via WHATSAPP_PROFILE (posé par le .mcp.json de ce projet). Voir
+// src/profiles.js et docs/adr/0006. Opt-in : absent + profiles.json absent =
+// couche inerte.
+const profile = (process.env.WHATSAPP_PROFILE || "").trim();
+const profilesFile = process.env.WHATSAPP_PROFILES_FILE
+  ? path.resolve(projectRoot, process.env.WHATSAPP_PROFILES_FILE)
+  : path.join(projectRoot, "profiles.json");
+
 // Drapeau d'authentification forte (Touch ID) sur grant_channel (ADR-0003). Absent ->
 // ON par défaut ; {"enabled":false} désarme à la main. Voir src/strongauth.js.
 const strongAuthFile = process.env.WHATSAPP_STRONG_AUTH_FILE
@@ -107,6 +116,8 @@ export const config = {
   dataDir,
   settingsFile,
   allowlistFile,
+  profile,
+  profilesFile,
   strongAuthFile,
   sessionsDir,
   sessionTtlMs,

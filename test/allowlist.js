@@ -195,7 +195,7 @@ try {
   const menu = await waMenu.listGroups();
   check("list_groups ne renvoie que les canaux du plafond", menu.groups.length === 1);
   check("list_groups : le bon canal", menu.groups[0].id === "ok@g.us");
-  check("list_groups : les autres sont comptés, pas nommés", menu.hidden === 2);
+  check("list_groups : les autres sont comptés, pas nommés", menu.hiddenOutsideAllowlist === 2);
   check(
     "list_groups : aucun nom/JID hors plafond ne fuite",
     !JSON.stringify(menu).includes("prive1@g.us") && !JSON.stringify(menu).includes("Groupe privé")

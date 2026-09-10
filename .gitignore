@@ -22,6 +22,10 @@ settings-*.json
 allowlist.json
 allowlist-*.json
 
+# Le profil par projet (fiche 0004, ADR-0006) : mêmes données privées -> jamais commité
+profiles.json
+profiles-*.json
+
 # Drapeau d'authentification forte (ADR-0003) : désarmement manuel local -> jamais commité
 strong-auth.json
 strong-auth-*.json

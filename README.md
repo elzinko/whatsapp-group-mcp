@@ -234,6 +234,45 @@ npm run sessions -- close --all                              # révoque tout
 npm run sessions -- open --channels <jid1,jid2> --ttl 30d    # jeton longue durée (CLI/scripts)
 ```
 
+## Profils par projet — restreindre l'accès par répertoire
+
+Par défaut, le plafond est **global** : tout projet qui lance le serveur voit les mêmes
+canaux. Un **profil** resserre ça **par répertoire** — le projet copro ne lit que la copro,
+sans que le LLM ait à le demander. Le périmètre effectif devient **plafond ∩ profil** (puis
+encore ∩ session, cf. plus haut).
+
+Deux pièces, et une règle simple :
+
+1. **Le projet déclare un nom de profil.** Dans le `.mcp.json` du projet, tu poses
+   `WHATSAPP_PROFILE=copro`. C'est une **déclaration explicite** : le serveur ne devine
+   jamais le profil depuis le chemin (fragile et falsifiable).
+2. **Le serveur mappe ce nom vers des canaux**, dans un fichier `profiles.json` **local**
+   que seul l'humain édite (jamais commité). Ainsi **les JID de tes groupes ne quittent pas
+   ton poste** — seul le *nom* du profil vit dans le repo du projet.
+
+   ```json
+   {
+     "version": 1,
+     "profiles": {
+       "copro":   ["Copro Reine Blanche", { "jid": "1203…@g.us", "name": "Basket loisir" }],
+       "famille": ["1203…@g.us"]
+     }
+   }
+   ```
+
+   Une entrée s'écrit **comme dans le plafond** (nom exact, JID, ou `{ jid, name }`). Un
+   profil ne peut jamais dépasser le plafond : le périmètre est l'**intersection** des deux.
+3. **La règle d'activation.** Tant qu'il n'y a **ni `profiles.json` ni `WHATSAPP_PROFILE`**,
+   la couche est **inerte** : le serveur se comporte comme avant (plafond seul), rien ne
+   casse. **Dès que tu actives** les profils (le fichier existe, ou la variable est posée),
+   c'est **fail-closed** : un process **sans profil déclaré ne voit rien**, et un **profil
+   inconnu** du fichier ne voit rien non plus.
+
+Le droit ne dépend que du **contenu** (`WHATSAPP_PROFILE`), jamais du chemin : deux
+worktrees d'un même projet, même profil, ont exactement les mêmes droits. Le fichier se
+**recharge à chaud** (comme le plafond) — une correction s'applique sans redémarrage.
+Détail et alternatives écartées : [ADR-0006](docs/adr/0006-profils-par-projet.md).
+
 ## Persistance des messages sur disque
 
 Avec `WHATSAPP_PERSIST=true` (défaut), les messages des canaux autorisés sont archivés
@@ -338,6 +377,8 @@ Tout est optionnel. Voir [`.env.example`](.env.example).
 | `WHATSAPP_DATA_DIR` | `./data` | Archive des messages. |
 | `WHATSAPP_SETTINGS_FILE` | `./settings.json` | Canaux autorisés (grants). |
 | `WHATSAPP_ALLOWLIST_FILE` | `./allowlist.json` | Le **plafond** : édité à la main uniquement, borne grants, ingestion, sessions et lecture. |
+| `WHATSAPP_PROFILE` | *(vide)* | Nom du profil du projet, **déclaré dans le `.mcp.json`**. Restreint l'accès à `plafond ∩ profil`. Vide = couche inerte (sauf si `profiles.json` existe → alors fail-closed). Voir « Profils par projet ». |
+| `WHATSAPP_PROFILES_FILE` | `./profiles.json` | Mappe chaque profil → ses canaux. Édité à la main, **jamais commité** (les JID restent locaux). Absent = couche inerte. |
 | `WHATSAPP_STRONG_AUTH_FILE` | `./strong-auth.json` | Drapeau Touch ID (ADR-0003), aussi utilisé par `session_open`. |
 | `WHATSAPP_SESSIONS_DIR` | `./sessions` | Registre des sessions de lecture (un fichier par jeton, gitignored). |
 | `WHATSAPP_SESSION_TTL_MS` | `28800000` (8 h) | Durée de vie par défaut d'une session, en millisecondes. |

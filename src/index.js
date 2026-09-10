@@ -17,6 +17,7 @@ import {
 import { config } from "./config.js";
 import { Settings } from "./settings.js";
 import { Allowlist } from "./allowlist.js";
+import { Profiles } from "./profiles.js";
 import { buildConfirmGrant, buildGrantConsent, buildSessionConsent } from "./consent.js";
 import { readStrongAuthEnabled } from "./strongauth.js";
 import { checkPresence } from "./touchid.js";
@@ -27,7 +28,10 @@ const settings = new Settings(config.settingsFile).load();
 // Le plafond (ADR-0002). Au tout premier démarrage, il est généré depuis les grants
 // existants (migration sans régression) ; ensuite seul l'humain l'édite, à la main.
 const allowlist = new Allowlist(config.allowlistFile).bootstrap(settings);
-const wa = new WhatsAppClient(config, settings, allowlist);
+// Le profil (fiche 0004, ADR-0006) : seconde borne, opt-in par projet. Absent
+// (ni profiles.json ni WHATSAPP_PROFILE) -> couche inerte, comportement ADR-0002.
+const profile = new Profiles(config.profilesFile).load();
+const wa = new WhatsAppClient(config, settings, allowlist, profile);
 // Registre des sessions de lecture (fiche 20260902223310499). Filtre appliqué en
 // AMONT du domaine, dans cette couche application : whatsapp.js ne le connaît pas.
 const sessions = new SessionRegistry(config.sessionsDir, { defaultTtlMs: config.sessionTtlMs });
@@ -274,20 +278,29 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       }
 
       case "list_groups": {
-        const { groups, hidden } = await wa.listGroups();
+        const { groups, hiddenOutsideAllowlist, hiddenOutsideProfile } = await wa.listGroups();
         const resolvedSession = args.session ? sessions.resolve(args.session) : null;
         const inSession = resolvedSession ? new Set(resolvedSession.channels) : null;
+        const notes = [];
+        if (hiddenOutsideAllowlist > 0)
+          notes.push(
+            `${hiddenOutsideAllowlist} autre(s) groupe(s) existent mais sont hors du plafond : ils ne ` +
+              `sont pas listables ici. Pour les voir et relever leur JID, l'humain lance ` +
+              `« npm run list-groups » dans un terminal, puis ajoute l'entrée à la main dans ${config.allowlistFile}.`
+          );
+        if (hiddenOutsideProfile > 0)
+          notes.push(
+            `${hiddenOutsideProfile} groupe(s) sont AU plafond mais hors du profil actif` +
+              (config.profile ? ` « ${config.profile} »` : "") +
+              ` : pour les voir dans ce projet, ajoute-les à ce profil dans ${config.profilesFile} ` +
+              `(inutile de toucher au plafond, ils y sont déjà).`
+          );
         return ok({
           count: groups.length,
           groups: inSession ? groups.map((g) => ({ ...g, inSession: inSession.has(g.id) })) : groups,
-          hiddenOutsideAllowlist: hidden,
-          note:
-            hidden > 0
-              ? `${hidden} autre(s) groupe(s) existent mais sont hors du plafond : ils ne sont ` +
-                `pas listables ici. Pour les voir et relever leur JID, l'humain lance ` +
-                `« npm run list-groups » dans un terminal, puis ajoute l'entrée à la main ` +
-                `dans ${config.allowlistFile}.`
-              : undefined,
+          hiddenOutsideAllowlist,
+          hiddenOutsideProfile,
+          note: notes.length ? notes.join(" ") : undefined,
         });
       }
 
@@ -310,10 +323,11 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           return fail(e?.message || String(e));
         }
 
-        // Vérification ⊆ grants ∩ plafond AVANT tout prompt (décision 4 de la fiche) :
-        // le reçu du consentement doit dire exactement ce qu'il accorde.
+        // Vérification ⊆ grants ∩ plafond ∩ profil AVANT tout prompt (décision 4 de la
+        // fiche + profil ADR-0006) : le reçu du consentement doit dire exactement ce qu'il
+        // accorde, et le profil borne session_open comme les autres chemins (Codex PR #34).
         wa.allowlist.refresh();
-        const denied = pairs.filter(({ jid }) => !wa.settings.has(jid) || !wa._ceilingHas(jid));
+        const denied = pairs.filter(({ jid }) => !wa.settings.has(jid) || !wa._inScope(jid));
         if (denied.length > 0) {
           return fail(
             `Hors grants ∩ plafond, refusé avant toute demande de consentement : ` +
