@@ -5,14 +5,14 @@ type: chore
 priority: P2
 version:
 epic:
-status: ready
+status: shipped
 ready: 2026-09-06
-pr:
+pr: "#31"
 created: 2026-07-21
 ---
 
 > **Mise à jour 2026-09-06 (revue backlog).** La question **de sécurité est tranchée**
-> depuis l'[ADR-0003](../docs/adr/0003-consentement-par-presence-touch-id.md) : la garde
+> depuis l'[ADR-0003](../../docs/adr/0003-consentement-par-presence-touch-id.md) : la garde
 > Touch ID est **ON par défaut**, imposée côté serveur, donc **indépendante du client**.
 > Sur un client sans élicitation, le grant ne retombe donc plus en *fail-open* silencieux
 > tant que le drapeau `strong-auth.json` est armé (défaut) — il exige une présence physique.
