@@ -328,13 +328,19 @@ Appelle grant_channel sur le groupe HORS plafond. Attendu : ERREUR contenant « 
 Annonce ce qui va se passer : tu vas retirer puis ré-autoriser le groupe DU plafond ; SELON la Phase A, une boîte Touch ID OU un formulaire serveur va apparaître, et c'est MOI qui dois l'accepter/refuser. Appelle revoke_channel puis grant_channel. Puis DEMANDE-MOI : « As-tu vu une boîte Touch ID ? un formulaire ? recopie ce que tu as vu et les boutons proposés. Sinon, dis-le. » Ne conclus rien avant ma réponse. STOP.
 
 — Phase D (session : ouverture, périmètre, TTL) —
-D'abord, appelle get_recent_messages SANS jeton sur le groupe du plafond : attendu = REFUS qui explique d'ouvrir une session. Montre-le. Puis appelle session_open sur ce groupe ; SELON la Phase A un 2e consentement (Touch ID/formulaire) est demandé — DEMANDE-MOI ce que j'ai vu. Montre-moi le jeton et l'échéance. Rappelle whatsapp_status avec ce jeton et montre le périmètre (expiresAt, channels). STOP.
+D'abord, appelle get_recent_messages SANS jeton sur le groupe du plafond : attendu = REFUS qui explique d'ouvrir une session. Montre-le. Puis appelle session_open sur ce groupe. DEUX cas, selon la Phase A :
+• Touch ID ou élicitation → un 2e consentement est demandé ; DEMANDE-MOI ce que j'ai vu, puis montre-moi le jeton et l'échéance, rappelle whatsapp_status avec ce jeton et montre le périmètre (expiresAt, channels).
+• « permissions du client » (strong-auth OFF ET pas d'élicitation) → session_open REFUSE, SANS jeton (« aucun consentement vérifiable… la session n'est pas ouverte »). N'invente PAS de jeton : consigne ce refus comme le résultat ATTENDU, SAUTE les Phases E–F (impossibles sans jeton) et enchaîne directement sur la Phase G puis la synthèse.
+STOP.
 
 — Phase E (lecture E2E via session) —
 Demande-moi de poster MAINTENANT un message reconnaissable (ex. « test E2E » + l'heure) dans le groupe du plafond, depuis mon TÉLÉPHONE, et d'attendre quelques secondes. Attends mon « c'est posté ». Ensuite appelle get_recent_messages EN PORTANT le jeton et montre si mon message apparaît (texte, expéditeur, heure). STOP.
 
 — Phase F (contrôles négatifs) —
 Tente get_recent_messages avec le jeton mais un canal HORS périmètre : attendu = refus. Rappelle que sans jeton c'est aussi un refus. Aucun de ces refus ne doit déclencher Touch ID/formulaire. Montre-moi les messages exacts. STOP.
+
+— Phase G (nettoyage — OBLIGATOIRE) —
+Reviens à l'état de départ. Si une session a été ouverte en Phase D, appelle session_close avec le jeton. Puis, comme la Phase C a (ré)accordé un grant PERSISTANT (il n'expire pas, il survit aux redémarrages), appelle revoke_channel sur le groupe DU plafond pour le retirer. Montre-moi les deux résultats. (Si ce run n'a créé aucun grant, dis-le et ne révoque rien.) STOP.
 
 — Synthèse —
 Remplis : | Phase | Observé (par toi via l'outil / par moi) | Attendu | Verdict |. Puis le verdict global : Touch ID vu OU formulaire vu → fiche 0001 cochée pour ce client ; « permissions du client » + aucun formulaire → allowlist seul garde-fou → fiche 0008. Termine par un paragraphe « à recopier dans la fiche », en SÉPARANT ce que TU as observé via les outils de ce que MOI je t'ai rapporté.

@@ -80,10 +80,10 @@ Acquis en juillet — **Claude Code** (à conserver, ne pas rejouer) :
 
 - [ ] `grantConsent` relevé sur Desktop et sur Cowork (une des 3 valeurs : Touch ID / élicitation / permissions client)
 - [ ] `grant_channel` sur un canal du plafond : Touch ID observé (ou son absence constatée et expliquée par le relevé)
-- [ ] `session_open` : consentement observé, jeton obtenu, `expiresAt` et périmètre corrects
+- [ ] `session_open` : en Touch ID/élicitation → consentement observé, jeton obtenu, `expiresAt` et périmètre corrects ; en « permissions du client » → **refus fail-closed constaté** (pas de jeton — comportement attendu)
 - [ ] `get_recent_messages` **sans** jeton (ou hors périmètre) : refus qui explique comment ouvrir une session
 - [ ] Refus hors plafond constaté sur les deux clients (contrôle dur, indépendant du consentement)
-- [ ] Lecture E2E réussie via une session (message du téléphone relu)
+- [ ] Lecture E2E réussie via une session (message du téléphone relu) — **sauf** en « permissions du client », où la session ne s'ouvre pas (refus fail-closed constaté à la place)
 - [ ] Aucun consentement Touch ID/élicitation déclenché sur un cas **refusé** (hors plafond, hors périmètre)
 - [ ] Résultat reporté dans les Notes ci-dessous, et dans la fiche 0008 si un client tombe en « permissions du client »
 
