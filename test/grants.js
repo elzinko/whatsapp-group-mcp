@@ -42,6 +42,42 @@ try {
   s2.revoke("111@g.us");
   check("la révocation est persistée", new Settings(file).load().grants.size === 0);
 
+  // --- 1bis) Provenance du consentement (via), fiche 0008 ---
+  const viaFile = path.join(tmp, "settings-via.json");
+  const v1 = new Settings(viaFile);
+  v1.grant("333@g.us", "Voisins", "elicitation");
+  const v2 = new Settings(viaFile).load();
+  check("via rechargé depuis le disque", v2.list()[0].via === "elicitation");
+
+  // Retour Codex (PR #31) : un re-grant SANS via (ex. groupe renommé par
+  // _revalidateGrants) ne doit pas écraser la provenance déjà persistée.
+  v1.grant("333@g.us", "Voisins renommés"); // via omis, comme au renommage
+  const v2b = new Settings(viaFile).load().list().find((g) => g.jid === "333@g.us");
+  check("re-grant sans via préserve la provenance ('elicitation')", v2b.via === "elicitation");
+  check("re-grant sans via rafraîchit le subject", v2b.subject === "Voisins renommés");
+
+  v1.grant("444@g.us", "Sans via");
+  const v3 = new Settings(viaFile).load();
+  check(
+    "grant sans via -> via === null",
+    v3.list().find((g) => g.jid === "444@g.us").via === null
+  );
+
+  // Un settings.json écrit AVANT ce changement n'a pas de champ via : doit charger
+  // sans erreur, via: null (rétro-compat).
+  fs.writeFileSync(
+    viaFile,
+    JSON.stringify({
+      version: 1,
+      grants: [{ jid: "555@g.us", scope: "read", subject: "Legacy", grantedAt: "2020-01-01T00:00:00.000Z" }],
+    })
+  );
+  const legacy = new Settings(viaFile).load();
+  check(
+    "grant legacy (sans via) chargé sans erreur, via === null",
+    legacy.has("555@g.us") && legacy.list()[0].via === null
+  );
+
   // --- 2) Robustesse : un fichier illisible ne doit pas ouvrir des droits ---
   fs.writeFileSync(file, "{ceci n'est pas du json");
   check("fichier corrompu -> aucun grant (fail closed)", new Settings(file).load().grants.size === 0);

@@ -526,6 +526,7 @@ export class WhatsAppClient {
       );
     }
 
+    let via = null;
     if (this.confirmGrant) {
       const res = await this.confirmGrant({ jid, subject });
       if (!res?.accepted) {
@@ -535,9 +536,10 @@ export class WhatsAppClient {
             ". Le grant n'a pas été accordé."
         );
       }
+      via = res?.via ?? null;
     }
 
-    this.settings.grant(jid, subject);
+    this.settings.grant(jid, subject, via);
     this._storeFor(jid);
     log(`Grant LECTURE accordé : « ${subject} » (${jid})`);
     return { jid, subject, scope: "read", granted: true };
@@ -605,6 +607,11 @@ export class WhatsAppClient {
         // réintègre pas à la main dans allowlist.json.
         suspended: !this._ceilingHas(g.jid) || undefined,
         messagesBuffered: this.stores.get(g.jid)?.size() ?? 0,
+        // Provenance du consentement (fiche 0008) : dit sans ambiguïté si un humain
+        // a confirmé (élicitation/Touch ID) ou si le client l'a auto-accordé sans
+        // humain (repli fail-open de l'ADR-0002, via="client-permissions").
+        consentVia: g.via ?? null,
+        confirmedByHuman: g.via == null ? null : g.via === "elicitation" || g.via === "touchid",
       })),
       allowlist: {
         file: this.config.allowlistFile,

@@ -5,8 +5,8 @@ type: chore
 priority: P2
 version:
 epic:
-status: todo
-ready:
+status: ready
+ready: 2026-09-06
 pr:
 created: 2026-07-21
 ---
@@ -68,14 +68,27 @@ de sécurité n°1 de l'usage quotidien.
 - [x] Le comportement est décidé et **écrit dans un ADR** — l'ADR-0003 (garde Touch ID)
       tranche : fail-closed par présence physique, ON par défaut ; note d'amendement datée
       dans l'ADR-0002
-- [ ] `whatsapp_status` dit sans ambiguïté si les grants de la session ont été confirmés
-      par un humain ou auto-accordés *(reste à faire : `grantConsent` expose le mode de
-      consentement, pas encore l'historique « humain vs auto » par grant)*
-- [ ] Le README et l'article ne laissent plus croire à une garantie inconditionnelle
-      *(reste à faire : décrire explicitement le cas « strong-auth OFF + client sans
-      élicitation » où le plafond est le seul contrôle)*
+- [x] `whatsapp_status` dit sans ambiguïté si les grants ont été confirmés par un humain
+      ou auto-accordés *(fait : `status()` expose par grant `consentVia` + `confirmedByHuman`
+      — élicitation/Touch ID → `true`, client-permissions → `false`, grant antérieur au
+      suivi → `null` ; couvert par `test/consent-provenance.js`)*
+- [x] Le README et l'article ne laissent plus croire à une garantie inconditionnelle
+      *(fait : README « Le repli sans élicitation — quand le plafond reste seul » ; puce
+      « La garantie dépend du client » ajoutée à l'article)*
 - [x] Un test couvre le chemin retenu (`test/consent-strongauth.js` : refus si la présence
       n'est pas prouvée ; `test/elicitation.js` : repli sans capability)
+
+## Comment vérifier
+
+- `npm test` — suite complète verte, dont `test/grants.js` (persistance de `via` + rechargement
+  d'un `settings.json` legacy sans `via`) et `test/consent-provenance.js` (classification dans
+  `status()`).
+- Appeler `whatsapp_status` : chaque entrée de `grantedChannels` porte `consentVia` (valeur
+  brute) et `confirmedByHuman` — `true` pour un grant confirmé par élicitation ou Touch ID,
+  `false` pour un grant auto-accordé (`client-permissions`), `null` pour un grant antérieur au
+  suivi.
+- Lire, côté doc : README § « Le repli sans élicitation — quand le plafond reste seul », et la
+  puce « La garantie dépend du client — et le repli est nommé » de l'article.
 
 ## Notes
 

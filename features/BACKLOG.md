@@ -9,7 +9,7 @@
 | [0002](0002-article-mes-messages-mes-agents-et-moi.md) | Article : « La question que le LLM ne peut pas trafiquer » (le MCP comme leçon de sécurité vécue) | feature | P1 |  | ⛔ blocked |  |
 | [20260902223310499](done/20260902223310499_droits-par-session-jeton-porte.md) | Droits par session — jeton porté dans chaque appel, ouvert par Touch ID, périmètre ⊆ grants, TTL et révocation | feature | P1 | 20260902223310355 | ✅ shipped | #25 |
 | [0003](done/0003-hygiene-locale-permissions-filevault.md) | Hygiène locale — permissions fichiers, FileVault, pas de dossier synchronisé | chore | P2 |  | ✅ shipped | #28 |
-| [0008](0008-repli-sans-elicitation-fail-open.md) | Documenter le repli sans élicitation (fail-open refermé par défaut par l'ADR-0003) | chore | P2 |  | ❓ todo |  |
+| [0008](0008-repli-sans-elicitation-fail-open.md) | Documenter le repli sans élicitation (fail-open refermé par défaut par l'ADR-0003) | chore | P2 |  | 🔵 ready |  |
 | [0009](done/0009-verrou-exclusif-auth.md) | Verrou OS exclusif sur auth/ — garde-fou anti-collision entre process | feature | P2 |  | ✅ shipped | #27 |
 | [0010](done/0010-installer-doctor-cli.md) | Installer / doctor en CLI — brancher le MCP sans se tromper (check node, chemin absolu) | feature | P2 |  | ✅ shipped | #8 |
 | [0012](done/0012-adr-serveur-ne-configure-pas-le-client.md) | ADR — le serveur MCP reste read-only et ne configure jamais le client | chore | P2 |  | ✅ shipped | #26 |
