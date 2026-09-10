@@ -188,6 +188,38 @@ try {
     "après édition à chaud (sans reconstruire le client) : 111 passe à true",
     wa8._inScope("111@g.us") === true
   );
+
+  // --- 9) profiles.json présent mais VIDE ({"profiles":{}}) : couche active, tout coupé ---
+  const emptyProfilesFile = path.join(tmp, "empty-profiles.json");
+  fs.writeFileSync(emptyProfilesFile, JSON.stringify({ version: 1, profiles: {} }));
+  const emptyP = new Profiles(emptyProfilesFile).load();
+  check("profiles vide : exists === true (couche active)", emptyP.exists === true);
+  const wa9 = new WhatsAppClient(
+    { maxMessages: 10, persist: false, allowlistFile: ceilingFile, profile: "copro" },
+    new Settings(path.join(tmp, "settings9.json")),
+    new Allowlist(ceilingFile).load(),
+    emptyP
+  );
+  check("profiles vide + profil déclaré -> 111 hors scope (fail closed)", wa9._inScope("111@g.us") === false);
+
+  // --- 10) Canal ingéré PUIS sorti du profil à chaud : recentFor ne le sert plus ---
+  const dropFile = path.join(tmp, "drop-profiles.json");
+  fs.writeFileSync(dropFile, JSON.stringify({ version: 1, profiles: { copro: ["111@g.us"] } }));
+  const settings10 = new Settings(path.join(tmp, "settings10.json"));
+  settings10.grant("111@g.us", "Copro");
+  const wa10 = new WhatsAppClient(
+    { maxMessages: 10, persist: false, allowlistFile: ceilingFile, profile: "copro" },
+    settings10,
+    new Allowlist(ceilingFile).load(),
+    new Profiles(dropFile).load()
+  );
+  wa10._ingest(fakeMsg("111@g.us", "d1"));
+  check("dans le profil : message ingéré et servi par recentFor", wa10.recentFor("111@g.us").messages.length === 1);
+  fs.writeFileSync(dropFile, JSON.stringify({ version: 1, profiles: { copro: ["222@g.us"] } })); // retrait à chaud
+  let served10;
+  try { served10 = wa10.recentFor("111@g.us"); } catch { served10 = "refusé"; }
+  check("après retrait à chaud du profil : recentFor refuse le canal", served10 === "refusé");
+  check("le message bufferisé subsiste mais n'est plus servi", wa10.stores.get("111@g.us")?.size() === 1);
 } catch (e) {
   console.error("Erreur test:", e);
   failed = true;

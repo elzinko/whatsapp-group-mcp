@@ -165,6 +165,13 @@ export class WhatsAppClient {
     return store;
   }
 
+  // Le sujet (nom) de référence d'un canal : celui du grant (résolu par Baileys à
+  // l'époque) ou, à défaut, du snapshot des groupes — jamais un texte fourni par le LLM.
+  // Partagé par _ceilingHas et _profileHas pour qu'ils ne divergent jamais (revue 0004).
+  _subjectFor(jid) {
+    return this.settings.grants.get(jid)?.subject ?? this.knownGroups.get(jid);
+  }
+
   // Le plafond couvre-t-il ce canal ? Le nom comparé vient du grant (résolu par
   // Baileys à l'époque) ou du snapshot des groupes — jamais d'un texte du LLM.
   //
@@ -175,7 +182,7 @@ export class WhatsAppClient {
   //      un tiers peut renommer SON groupe comme une entrée de ton plafond.
   _ceilingHas(jid) {
     this.allowlist.refresh();
-    const subject = this.settings.grants.get(jid)?.subject ?? this.knownGroups.get(jid);
+    const subject = this._subjectFor(jid);
     const match = this.allowlist.match(jid, subject);
     if (match === "jid") return true; // identité forte
     if (match !== "name") return false;
@@ -202,7 +209,10 @@ export class WhatsAppClient {
     const active = declared !== "" || this.profile.exists;
     if (!active) return true; // profils non configurés : couche inerte (ADR-0002)
     if (!declared) return false; // configurés mais process non déclaré : RIEN
-    const subject = this.settings.grants.get(jid)?.subject ?? this.knownGroups.get(jid);
+    // Match par nom SANS la garde anti-homonyme de _ceilingHas : inutile ici, car le
+    // profil est TOUJOURS ANDé au plafond (_inScope), qui porte cette garde forte. Le
+    // profil ne peut donc jamais ré-admettre un homonyme usurpé que le plafond refuse.
+    const subject = this._subjectFor(jid);
     return this.profile.permits(declared, jid, subject);
   }
 
