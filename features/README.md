@@ -14,7 +14,7 @@ Ce dossier est le **suivi versionné** des features / bugs / chores. Il vit sur
 |---|---|
 | `<id>_slug.md` | Fiches **actives** (`idea` / `ready` / `in-progress` / `blocked`) — `id` horodaté `AAAAMMDDHHMMSSmmm` ; legacy `0001-slug.md` (4 chiffres) toléré |
 | [`BACKLOG.md`](BACKLOG.md) | **Index généré** (`regen`) — ne pas éditer à la main |
-| `PLAN.md` *(optionnel — pas utilisé dans ce repo)* | Séquence décidée (curée) — horizon **NOW** court |
+| [`PLAN.md`](PLAN.md) | Séquence décidée (curée) — horizon **NOW** court. **Utilisé depuis le 2026-09-11.** |
 | [`done/`](done/) | Fiches **livrées** (`status: shipped`) |
 | [`feature-template.md`](feature-template.md) | Gabarit pour une nouvelle fiche |
 
