@@ -1,4 +1,4 @@
-# Plan — whatsapp-group-mcp
+# Plan — whatsapp-mcp
 
 > Séquence **décidée** (curée, pas générée). **Décidé le 2026-09-11** avec Thomas.
 > Le gate `ready` prime pour *tirer maintenant* ; ce plan prime pour *décider la suite*.

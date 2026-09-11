@@ -136,7 +136,7 @@ export class Allowlist {
     const data = {
       version: VERSION,
       _doc:
-        "PLAFOND des canaux servis par whatsapp-group-mcp. Édite ce fichier À LA MAIN : " +
+        "PLAFOND des canaux servis par whatsapp-mcp. Édite ce fichier À LA MAIN : " +
         "aucun outil MCP ne peut le modifier. Une entrée = un nom exact de groupe, un JID " +
         "(…@g.us), ou { jid, name }. Un canal absent d'ici n'est ni autorisable ni lisible.",
       channels,

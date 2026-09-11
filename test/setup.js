@@ -51,7 +51,7 @@ check(
     },
     preferences: { theme: "dark" },
   };
-  const merged = mergeMcpServer(existing, "whatsapp-group", {
+  const merged = mergeMcpServer(existing, "whatsapp-mcp", {
     command: "/opt/homebrew/bin/node",
     args: ["/abs/src/index.js"],
   });
@@ -61,17 +61,17 @@ check(
     merged.mcpServers.render?.env?.TOKEN === "secret-render"
   );
   check(
-    "whatsapp-group ajouté",
-    merged.mcpServers["whatsapp-group"]?.command === "/opt/homebrew/bin/node"
+    "whatsapp-mcp ajouté",
+    merged.mcpServers["whatsapp-mcp"]?.command === "/opt/homebrew/bin/node"
   );
   check("clé racine preferences préservée", merged.preferences?.theme === "dark");
-  check("objet d'origine NON muté", existing.mcpServers["whatsapp-group"] === undefined);
+  check("objet d'origine NON muté", existing.mcpServers["whatsapp-mcp"] === undefined);
 }
 {
-  let cfg = mergeMcpServer({}, "whatsapp-group", { command: "old" });
-  cfg = mergeMcpServer(cfg, "whatsapp-group", { command: "new" });
-  check("config {} -> crée mcpServers", cfg.mcpServers["whatsapp-group"]?.command === "new");
-  check("idempotent : une seule entrée whatsapp-group", Object.keys(cfg.mcpServers).length === 1);
+  let cfg = mergeMcpServer({}, "whatsapp-mcp", { command: "old" });
+  cfg = mergeMcpServer(cfg, "whatsapp-mcp", { command: "new" });
+  check("config {} -> crée mcpServers", cfg.mcpServers["whatsapp-mcp"]?.command === "new");
+  check("idempotent : une seule entrée whatsapp-mcp", Object.keys(cfg.mcpServers).length === 1);
 }
 check(
   "mcpServers absent -> géré",

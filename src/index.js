@@ -51,7 +51,7 @@ function subjectFor(jid) {
 // Aide concise, rendue par l'outil `whatsapp_help` (fiche 0011). Elle donne le MODÈLE
 // MENTAL (lecture seule · plafond · grant→lecture · note de sécurité) et INDIRIGE vers le
 // README (source de vérité) — elle ne recopie pas son détail volatil, qui périmerait.
-const HELP_TEXT = `whatsapp-group-mcp — aide
+const HELP_TEXT = `whatsapp-mcp — aide
 
 CE QUE C'EST
 Serveur MCP en LECTURE SEULE sur tes groupes WhatsApp. Il n'envoie jamais de message :
@@ -240,7 +240,7 @@ function fail(message) {
 }
 
 const server = new Server(
-  { name: "whatsapp-group-mcp", version: "0.2.0" },
+  { name: "whatsapp-mcp", version: "0.2.0" },
   { capabilities: { tools: {} } }
 );
 

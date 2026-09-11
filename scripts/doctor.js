@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [fiche 0010] doctor — diagnostic LECTURE SEULE du branchement du serveur whatsapp-group.
+// [fiche 0010] doctor — diagnostic LECTURE SEULE du branchement du serveur whatsapp-mcp.
 // N'écrit RIEN. Jumeau exécutable de la Phase 0 (docs/tests/validation-manuelle-desktop.md).
 // CLI autonome (pas le serveur MCP) : stdout est libre pour le rapport.
 
@@ -12,7 +12,7 @@ const ok = (m) => console.log(`✅ ${m}`);
 const warn = (m) => console.log(`⚠️  ${m}`);
 const info = (m) => console.log(`   ${m}`);
 
-console.log("— doctor whatsapp-group-mcp —\n");
+console.log("— doctor whatsapp-mcp —\n");
 
 // 1. node : version + chemin stable pour Desktop
 if (nodeVersionOk(process.version)) ok(`node ${process.version} (≥ 20)`);
@@ -27,8 +27,8 @@ try {
   const raw = fs.readFileSync(desktopPath, "utf8");
   try {
     const cfg = JSON.parse(raw);
-    if (cfg?.mcpServers?.["whatsapp-group"]) ok("Claude Desktop : whatsapp-group branché");
-    else warn("Claude Desktop : whatsapp-group ABSENT de mcpServers → « npm run install:client »");
+    if (cfg?.mcpServers?.["whatsapp-mcp"]) ok("Claude Desktop : whatsapp-mcp branché");
+    else warn("Claude Desktop : whatsapp-mcp ABSENT de mcpServers → « npm run install:client »");
   } catch {
     warn(`Claude Desktop : config présente mais JSON illisible (${desktopPath})`);
   }
@@ -38,13 +38,13 @@ try {
 
 // 3. Claude Code branché ? (tolère l'absence de la CLI `claude`)
 try {
-  execFileSync("claude", ["mcp", "get", "whatsapp-group"], {
+  execFileSync("claude", ["mcp", "get", "whatsapp-mcp"], {
     stdio: ["ignore", "ignore", "ignore"],
   });
-  ok("Claude Code : whatsapp-group branché");
+  ok("Claude Code : whatsapp-mcp branché");
 } catch {
   info("Claude Code : non détecté (ou CLI `claude` absente). Pour brancher :");
-  info(`  claude mcp add whatsapp-group -- ${stable.path} ${config.projectRoot}/src/index.js`);
+  info(`  claude mcp add whatsapp-mcp -- ${stable.path} ${config.projectRoot}/src/index.js`);
 }
 
 // 4. Session WhatsApp appairée ?

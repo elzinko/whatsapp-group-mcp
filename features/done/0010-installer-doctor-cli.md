@@ -47,7 +47,7 @@ google-mcp-multi-account, `bin/gwsa`).
 - [x] `doctor` diagnostique sans rien modifier ; il signale node manquant / trop vieux (validé en réel)
 - [x] `install` écrit un `command` = **chemin absolu** vers node (`/opt/homebrew/bin/node`)
 - [x] `install` **préserve** les serveurs déjà présents — validé E2E contre la vraie config
-      (shopify + render + google-multi-account intacts, whatsapp-group ajouté, backup créé)
+      (shopify + render + google-multi-account intacts, whatsapp-mcp ajouté, backup créé)
 - [x] `install` refuse si Desktop est ouvert (garde-fou `pgrep`)
 - [x] Aucun secret, aucune donnée privée touchée ; le serveur MCP lui-même reste read-only
 - [x] Testé : 21 cas sur les helpers purs (dont `mergeMcpServer` non-destructif) + E2E réel

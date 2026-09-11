@@ -110,7 +110,7 @@ export const config = {
   persist: bool(process.env.WHATSAPP_PERSIST, true),
   // Nom affiché dans WhatsApp > Appareils liés/connectés. Figé AU MOMENT de
   // l'appairage : le changer n'a d'effet qu'après un ré-appairage (QR).
-  deviceName: (process.env.WHATSAPP_DEVICE_NAME || "").trim() || "whatsapp-group-mcp",
+  deviceName: (process.env.WHATSAPP_DEVICE_NAME || "").trim() || "whatsapp-mcp",
   authDir,
   authLockFile,
   dataDir,

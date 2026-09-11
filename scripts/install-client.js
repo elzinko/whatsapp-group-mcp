@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [fiche 0010] install-client — écrit le bloc whatsapp-group dans la config Claude Desktop,
+// [fiche 0010] install-client — écrit le bloc whatsapp-mcp dans la config Claude Desktop,
 // avec garde-fous. CLI lancée PAR L'HUMAIN : son geste au terminal EST le consentement, et
 // le serveur MCP ne configure jamais un client lui-même (frontière fiche 0012).
 //
@@ -68,17 +68,17 @@ if (raw !== null) {
 }
 
 // 5. Fusion idempotente (préserve tous les autres serveurs et clés) + écriture
-const merged = mergeMcpServer(existing, "whatsapp-group", {
+const merged = mergeMcpServer(existing, "whatsapp-mcp", {
   command: stable.path,
   args: [serverEntry],
 });
 fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
 fs.writeFileSync(cfgPath, `${JSON.stringify(merged, null, 2)}\n`);
-console.log(`✓ whatsapp-group branché dans Claude Desktop`);
+console.log(`✓ whatsapp-mcp branché dans Claude Desktop`);
 console.log(`  ${cfgPath}`);
 console.log(`  command: ${stable.path}`);
 console.log("  → Rouvre Claude Desktop pour charger le serveur.");
 
 // 6. Claude Code : imprimer la commande (ne pas écrire ~/.claude.json à la main)
 console.log("\nPour Claude Code, lance :");
-console.log(`  claude mcp add whatsapp-group -- ${stable.path} ${serverEntry}`);
+console.log(`  claude mcp add whatsapp-mcp -- ${stable.path} ${serverEntry}`);

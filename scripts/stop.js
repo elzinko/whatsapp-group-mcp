@@ -1,4 +1,4 @@
-// Arrête TOUS les serveurs whatsapp-group-mcp en cours, d'où qu'ils viennent
+// Arrête TOUS les serveurs whatsapp-mcp en cours, d'où qu'ils viennent
 // (npm start oublié dans un terminal, serveur lancé en arrière-plan par Claude
 // Desktop ou Claude Code…). Un seul process à la fois peut tenir la session
 // WhatsApp : `npm start` appelle ce script automatiquement (prestart).
@@ -46,7 +46,7 @@ for (const line of out.split("\n")) {
 }
 
 if (victims.length === 0) {
-  console.error("[stop] Aucun serveur whatsapp-group-mcp en cours.");
+  console.error("[stop] Aucun serveur whatsapp-mcp en cours.");
   process.exit(0);
 }
 

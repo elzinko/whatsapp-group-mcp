@@ -32,7 +32,7 @@ Trois causes distinctes se cachent derrière « ça marche dans Code, pas dans C
 
 1. **Branchement.** Cowork est l'application Desktop : elle lit `claude_desktop_config.json`
    et expose ses serveurs MCP locaux aux tâches Cowork par un pont (`localMcpBridge` ; le
-   journal Desktop annonce « google-multi-account: 17 tool(s) »). `whatsapp-group` n'y est
+   journal Desktop annonce « google-multi-account: 17 tool(s) »). `whatsapp-mcp` n'y est
    **pas** aujourd'hui (`npm run doctor` : « ABSENT de mcpServers »). Il y était dans les
    sauvegardes de config du 19 au 28 juillet ; il a disparu depuis. Claude Code, lui, a sa
    propre config (`~/.claude.json`) où le serveur est branché.
@@ -56,7 +56,7 @@ de l'ADR-0003).
 
 ## Ce que google-mcp-multi-account a déjà résolu (et ce qui change ici)
 
-| Aspect | google-mcp-multi-account (livré, ADR-0007) | whatsapp-group-mcp (cible) |
+| Aspect | google-mcp-multi-account (livré, ADR-0007) | whatsapp-mcp (cible) |
 |---|---|---|
 | Identité d'une conversation | jeton émis par un geste signé (`mag session open`), **porté dans chaque appel** (`session`) | idem : le protocole MCP ne fournit pas d'id de conversation |
 | Grain des droits | compte × service × opération × ressource | **canal** (JID) × lecture — une seule opération, tout est plus simple |
