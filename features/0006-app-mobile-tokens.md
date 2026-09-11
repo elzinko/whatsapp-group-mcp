@@ -37,3 +37,11 @@ Le démon (0005, prérequis) expose une API réseau ; jamais Baileys directement
 
 Dépend de 0005. Chapitre 6 de l'article (0002) : « Le jour où mon téléphone voudra
 lire mon téléphone ».
+
+### Décision (2026-09-11) — garée très loin (diverge du local-first)
+
+google-mcp-multi-account, le produit de référence, est **100 % local** — volontairement aucun
+accès réseau ni mobile. Cette fiche va dans l'autre sens (un consommateur **par le réseau**).
+Thomas ne retient plus le sujet mobile pour l'instant. **Garée** comme vision d'origine
+consignée, hors du flux actif ; à rouvrir seulement si un consommateur réseau devient réel.
+(Non supprimée — recoverable ; dire le mot pour l'effacer.)

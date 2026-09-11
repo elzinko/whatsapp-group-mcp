@@ -61,3 +61,9 @@ WhatsApp ? » ; même chose dans Code après `claude plugin install`.
   peut attendre.
 - Différence avec un `.mcpb` (extension Desktop, déjà utilisée par Thomas pour
   `vectorz-supervision`) : le `.mcpb` = Desktop seulement ; le plugin = Cowork + Code.
+- **Décision 2026-09-11 : garée, pas de build maintenant.** google-mcp-multi-account (produit
+  de référence) n'a **pas** de plugin : il branche par une commande `mag wire desktop|code`.
+  whatsapp a déjà l'équivalent (`npm run install:client`) pour Code + Desktop ; le plugin
+  n'ajoute qu'un install en un clic dans Cowork. Piste préférée si le besoin vient :
+  **étendre `install:client`** (façon `wire`) plutôt qu'un plugin. À reconsidérer seulement si
+  l'install un-clic Cowork devient un vrai manque. Prérequis inchangé : le démon (0005) d'abord.

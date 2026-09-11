@@ -71,6 +71,10 @@ Le serveur reste par ailleurs ce qu'il était : lecture seule (l'outil d'envoi n
 
 La suite logique est déjà au backlog : remplacer un jour le clic Accept par une **signature à présence physique** — Touch ID, clé en Secure Enclave — pour sortir même le client MCP de la base de confiance. Après la question que le LLM ne peut pas trafiquer : la réponse que seul mon doigt peut donner.
 
+## Mise à jour — septembre 2026
+
+L'histoire a continué. Une fois réglé le *qui autorise ?*, une deuxième question est apparue : *quelle conversation demande ?* Sous Claude Desktop, plusieurs chats partagent une seule connexion — le serveur ne les distingue pas. J'ai donc ajouté un cran : chaque conversation ouvre sa **session** par un geste physique (Touch ID), bornée par le plafond, avec une date de fin et révocable ; chaque lecture porte ce jeton. Le périmètre effectif se lit désormais en trois couches — **plafond ∩ profil du projet ∩ session de la conversation**. Et le Touch ID par défaut est passé *au-dessus* du formulaire : sur les clients qui le portent, le consentement n'est plus un clic mais une empreinte. Tout ça vit dans le backlog, épic « accès WhatsApp par session ».
+
 ---
 
 *La leçon, généralisable à tout serveur MCP qui touche à des données sensibles : ne demandez pas au client d'être votre gardien — il ne vous doit rien. Le périmètre dans un fichier hors de portée des outils, le consentement rédigé par le serveur, et le refus comme comportement par défaut.*

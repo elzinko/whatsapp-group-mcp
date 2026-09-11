@@ -1,7 +1,9 @@
 # Backlog features & bugs — whatsapp-group-mcp
 
 > Index auto-généré (`regen-backlog.sh` mega-city, via `/ezk-backlog regen`) — **ne pas éditer à la main**. Source de vérité = le front-matter de chaque fiche.
-> Guide du dossier : [README.md](README.md). Statuts : 💡 idea · 🔵 ready · 🟠 in-progress · ⛔ blocked · ✅ shipped.
+> Guide du dossier : [README.md](README.md). Statuts : 💡 idea · 🔵 ready · 🟠 in-progress · ⛔ blocked · ✅ shipped · 🗑️ superseded.
+
+> 📋 Séquence décidée (curée, hors index) : [PLAN.md](PLAN.md).
 
 | # | Titre | Type | Prio | Épic | Statut | PR |
 |---|-------|------|------|------|--------|----|
@@ -22,8 +24,8 @@
 
 | # | Titre | Type | Prio | Épic | Statut | PR |
 |---|-------|------|------|------|--------|----|
-| [20260902223310355](20260902223310355_acces-whatsapp-par-session.md) | Accès WhatsApp par session — Cowork, Desktop et Code, chacun son périmètre (plafond ∩ profil ∩ session) | epic | P1 |  | 💡 idea |  |
-| [0005](0005-demon-frontends-mcp.md) | Démon unique + frontends MCP minces (phase 2 — multi-clients simultanés) | epic | P3 |  | 💡 idea |  |
+| [20260902223310355](20260902223310355_acces-whatsapp-par-session.md) | Accès WhatsApp par session — Cowork, Desktop et Code, chacun son périmètre (plafond ∩ profil ∩ session) | epic | P1 |  | 🟠 in-progress |  |
+| [0005](0005-demon-frontends-mcp.md) | Démon unique + frontends MCP minces (phase 2 — multi-clients simultanés) | epic | P2 |  | 💡 idea |  |
 | [0006](0006-app-mobile-tokens.md) | Accès réseau pour l'app mobile — tokens à capabilities, TLS/Tailscale (phase 3) | epic | P3 |  | 💡 idea |  |
 
 ## 💡 Idées (non groomées)

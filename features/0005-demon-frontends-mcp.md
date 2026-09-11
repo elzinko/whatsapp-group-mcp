@@ -2,7 +2,7 @@
 id: 0005
 title: Démon unique + frontends MCP minces (phase 2 — multi-clients simultanés)
 type: epic
-priority: P3
+priority: P2
 version:
 epic:
 status: idea
@@ -84,3 +84,15 @@ répondait — le besoin « multi-simultané réel » posé en condition ci-dess
 constaté. Le registre de sessions (fiche
 [20260902223310499](done/20260902223310499_droits-par-session-jeton-porte.md)) est conçu pour
 migrer tel quel dans le démon.
+
+### Décision (2026-09-11) — priorité P2 + admin de monitoring
+
+Relevé **P3 → P2** : c'est le prérequis constaté du multi-conversation (plusieurs chats
+Desktop / Cowork + Code en même temps — exigence de l'épic
+[20260902223310355](20260902223310355_acces-whatsapp-par-session.md)), pas un simple confort.
+Reste sous les fiches déjà tirables tant que « un client à la fois » suffit.
+
+Le démon **peut** exposer un **admin de monitoring uniquement**, calqué sur celui de
+google-mcp-multi-account (console web locale, journal d'audit — **aucun** pouvoir de config ni de
+contrôle). L'authentification / autorisation / accès vivent dans le serveur ; l'admin ne fait
+que *regarder*.

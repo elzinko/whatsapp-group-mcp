@@ -66,6 +66,14 @@ relevé, Touch ID sur `grant_channel` **et** sur `session_open`, le refus hors p
 l'isolation par session (`get_recent_messages` refusé sans jeton), le masquage hors
 profil, et la lecture E2E.
 
+**Inspiration google-mcp-multi-account (2026-09-11).** Le projet frère est déjà branché dans
+Desktop/Cowork et y fonctionne. Son consentement ne dépend **pas** du client : Touch ID (geste
+natif) + « l'agent propose la commande, l'humain la lance ». whatsapp a déjà Touch ID par défaut
+→ **s'appuyer dessus** comme consentement primaire sur Desktop (indépendant du client), et garder
+le repli « propose la commande, tu la lances » si Desktop n'affiche pas le formulaire MCP. Le seul
+vrai inconnu, propre à whatsapp : la boîte Touch ID s'affiche-t-elle depuis le serveur MCP **lancé
+par Desktop** (chez google le Touch ID est déclenché en CLI) ? C'est le cœur de la mesure.
+
 ## Critères d'acceptation
 
 Acquis en juillet — **Claude Code** (à conserver, ne pas rejouer) :

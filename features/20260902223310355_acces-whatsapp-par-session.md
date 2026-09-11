@@ -5,7 +5,7 @@ type: epic
 priority: P1
 version:
 epic:
-status: idea
+status: in-progress
 ready:
 pr:
 created: 2026-09-03
@@ -113,6 +113,8 @@ Séquence proposée (chaque étape est une fiche) :
 ## Critères d'acceptation
 
 - [ ] Depuis une tâche Cowork, « quel est le statut WhatsApp ? » répond (branchement constaté).
+- [ ] **Depuis un chat Claude Desktop** (pas seulement Cowork/Code) : le statut répond, une
+      session s'ouvre par Touch ID, la lecture reste dans son périmètre (exigence Thomas, 2026-09-11).
 - [ ] Deux conversations ouvertes en même temps (ex. une tâche Cowork et une session Code)
       lisent des groupes **différents**, chacune dans son périmètre ; aucune ne voit celui de
       l'autre.
