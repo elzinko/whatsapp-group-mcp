@@ -58,7 +58,7 @@ problème → contexte → solution → implémentation — remplace les 6 chapi
   épic « accès par session »). « Bloquée » = garée volontairement, pas un obstacle. Débloquer
   plus tard = choisir le support puis publier (probablement après le passage du repo en public).
 - Deux points à trancher au moment de publier :
-  1. le repo `whatsapp-group-mcp` est **privé** → le lien cité dans l'article tombe dans
+  1. le repo `whatsapp-mcp` est **privé** → le lien cité dans l'article tombe dans
      le vide tant qu'il ne passe pas public ;
   2. Markdown + Mermaid passe tel quel sur GitHub / dev.to / Hashnode ; pour Medium ou
      LinkedIn, exporter le diagramme en image (SVG/PNG).

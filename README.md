@@ -1,4 +1,4 @@
-# whatsapp-group-mcp
+# whatsapp-mcp
 
 Serveur **MCP** qui donne à un LLM (Claude Desktop, Cowork…) un accès **en lecture seule**
 aux groupes WhatsApp que **tu autorises explicitement**, un par un.
@@ -49,7 +49,7 @@ si l'écriture existait — d'où son absence, et le contrat posé dans
 ## Installation
 
 ```bash
-cd whatsapp-group-mcp
+cd whatsapp-mcp
 npm install
 cp .env.example .env   # optionnel : tout a une valeur par défaut
 ```
@@ -326,9 +326,9 @@ Ajoute ce bloc dans `claude_desktop_config.json` :
 ```json
 {
   "mcpServers": {
-    "whatsapp-group": {
+    "whatsapp-mcp": {
       "command": "node",
-      "args": ["/CHEMIN/ABSOLU/VERS/whatsapp-group-mcp/src/index.js"]
+      "args": ["/CHEMIN/ABSOLU/VERS/whatsapp-mcp/src/index.js"]
     }
   }
 }
@@ -370,7 +370,7 @@ Tout est optionnel. Voir [`.env.example`](.env.example).
 | `WHATSAPP_GROUP_ID` | *(vide)* | **Amorçage seulement** : converti en autorisation au 1er démarrage si aucune n'existe. Ensuite `settings.json` fait foi. |
 | `WHATSAPP_GROUP_NAME` | *(vide)* | Idem, par nom exact. |
 | `WHATSAPP_PERSIST` | `true` | Archive les messages sur disque (`./data/*.jsonl`). |
-| `WHATSAPP_DEVICE_NAME` | `whatsapp-group-mcp` | Nom de l'appareil dans WhatsApp → Appareils liés/connectés. **Figé à l'appairage** : le changer exige de déconnecter l'appareil (téléphone), supprimer `./auth`, et rescanner le QR. |
+| `WHATSAPP_DEVICE_NAME` | `whatsapp-mcp` | Nom de l'appareil dans WhatsApp → Appareils liés/connectés. **Figé à l'appairage** : le changer exige de déconnecter l'appareil (téléphone), supprimer `./auth`, et rescanner le QR. |
 | `WHATSAPP_MAX_MESSAGES` | `500` | Taille du tampon **mémoire**, **par canal**. |
 | `WHATSAPP_AUTH_DIR` | `./auth` | Identifiants de session. **Effacé en cas de déconnexion.** |
 | `WHATSAPP_AUTH_LOCK` | `<WHATSAPP_AUTH_DIR>.lock` | Fichier du verrou OS exclusif anti-collision (voir « Un seul process Baileys à la fois »). |

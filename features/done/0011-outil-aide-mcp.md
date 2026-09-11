@@ -42,7 +42,7 @@ Deux mécanismes MCP natifs, complémentaires, **séquencés POC → polish** :
   « comment j'utilise ça ? ». Marche dans **tout** client MCP, invocable par le LLM,
   **aucune nouvelle capability** (`tools` est déjà déclaré).
 - **Polish (confort, optionnel) — un prompt MCP nommé** exposé en **slash-command**
-  (ex. `/whatsapp-group:help`), pour ceux qui préfèrent une commande explicite. Ajoute la
+  (ex. `/whatsapp-mcp:help`), pour ceux qui préfèrent une commande explicite. Ajoute la
   capability `prompts` + les handlers `ListPrompts`/`GetPrompt`. **Différable** si le POC
   suffit ou si le coût dépasse la valeur — tracé comme sous-point, **non bloquant** pour livrer.
 

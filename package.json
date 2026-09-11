@@ -1,12 +1,12 @@
 {
-  "name": "whatsapp-group-mcp",
+  "name": "whatsapp-mcp",
   "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Serveur MCP lisant, en LECTURE SEULE, les groupes WhatsApp que tu autorises explicitement. Basé sur Baileys (WhatsApp Web).",
   "main": "src/index.js",
   "bin": {
-    "whatsapp-group-mcp": "src/index.js"
+    "whatsapp-mcp": "src/index.js"
   },
   "scripts": {
     "prestart": "node scripts/stop.js",

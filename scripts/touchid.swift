@@ -8,7 +8,7 @@ import LocalAuthentication
 
 let reason = CommandLine.arguments.count > 1
     ? CommandLine.arguments[1]
-    : "autoriser cette action whatsapp-group-mcp"
+    : "autoriser cette action whatsapp-mcp"
 
 let ctx = LAContext()
 var err: NSError?

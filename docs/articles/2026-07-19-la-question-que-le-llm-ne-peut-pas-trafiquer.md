@@ -2,7 +2,7 @@
 
 *Comment j'ai découvert que mon agent pouvait s'autoriser tout seul à lire mes messages WhatsApp — et ce que j'ai construit pour que ça ne soit plus jamais possible.*
 
-*Lecture : ~4 minutes. Projet : [whatsapp-group-mcp](https://github.com/elzinko/whatsapp-group-mcp), un serveur MCP qui permet à Claude de lire — en lecture seule — les groupes WhatsApp que j'autorise explicitement.*
+*Lecture : ~4 minutes. Projet : [whatsapp-mcp](https://github.com/elzinko/whatsapp-mcp), un serveur MCP qui permet à Claude de lire — en lecture seule — les groupes WhatsApp que j'autorise explicitement.*
 
 ---
 

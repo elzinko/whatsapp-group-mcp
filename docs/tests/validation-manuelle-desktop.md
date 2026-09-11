@@ -41,7 +41,7 @@ Prompt de lancement clé-en-main : voir [Annexe](#annexe--prompt-pour-piloter-le
 
    ```bash
    npm run stop      # coupe les serveurs lancés par les sessions Code
-   npm run doctor    # confirme que whatsapp-group est branché dans le client visé
+   npm run doctor    # confirme que whatsapp-mcp est branché dans le client visé
    ```
 
    Puis laisse **le client** (Desktop/Cowork/Code) lancer le serveur — **pas les deux**.
@@ -63,9 +63,9 @@ Desktop et Cowork partagent **le même** fichier de config et **le même** `./au
 - **Le bloc à fusionner** dans `mcpServers` (sans toucher aux serveurs présents) :
 
   ```json
-  "whatsapp-group": {
+  "whatsapp-mcp": {
     "command": "/opt/homebrew/bin/node",
-    "args": ["/CHEMIN/ABSOLU/VERS/whatsapp-group-mcp/src/index.js"]
+    "args": ["/CHEMIN/ABSOLU/VERS/whatsapp-mcp/src/index.js"]
   }
   ```
 
@@ -301,7 +301,7 @@ s'arrête et pose la question, pas une qui comble les trous.
 ```text
 [Config à régler dans l'UI AVANT de coller : modèle Opus 4.8, réflexion étendue désactivée. Non modifiable par ce texte.]
 
-Tu es mon copilote de TEST MANUEL du serveur MCP « whatsapp-group » (LECTURE SEULE). On valide que le consentement humain fonctionne en conditions réelles. Déroule les phases UNE PAR UNE, dans l'ordre, et ARRÊTE-TOI à chaque point de contrôle pour me poser la question puis attendre ma réponse.
+Tu es mon copilote de TEST MANUEL du serveur MCP « whatsapp-mcp » (LECTURE SEULE). On valide que le consentement humain fonctionne en conditions réelles. Déroule les phases UNE PAR UNE, dans l'ordre, et ARRÊTE-TOI à chaque point de contrôle pour me poser la question puis attendre ma réponse.
 
 RÈGLES ABSOLUES (ne les enfreins jamais) :
 1. Tu ne vois NI la boîte Touch ID, NI le dialogue de consentement du client, NI mon téléphone. Pour tout ce que moi seul peux observer, tu me le DEMANDES et tu attends. Tu n'inventes JAMAIS ma réponse ; tu ne supposes jamais qu'une boîte Touch ID est apparue, qu'un formulaire a été vu, ni qu'un message a été posté.
@@ -312,7 +312,7 @@ RÈGLES ABSOLUES (ne les enfreins jamais) :
 
 — Phase 0 (branchement) —
 Vérifie que tu as les outils : whatsapp_status, list_groups, grant_channel, revoke_channel, session_open, get_recent_messages, session_close.
-• Si NON : dis que le MCP n'est pas branché dans ce client et donne-moi la marche à suivre Desktop : (1) Quitter COMPLÈTEMENT Desktop (Cmd-Q) — l'app réécrit sa config en direct ; (2) éditer « ~/Library/Application Support/Claude/claude_desktop_config.json », fusionner sous mcpServers le bloc { "whatsapp-group": { "command": "/opt/homebrew/bin/node", "args": ["/CHEMIN/ABSOLU/VERS/whatsapp-group-mcp/src/index.js"] } } ; (3) rouvrir. Rappelle : chemin absolu vers node (pas de nvm/Homebrew dans le PATH de Desktop) ; pas de WHATSAPP_AUTH_DIR ; un seul client à la fois sur ./auth (sinon 440) → « npm run stop » avant. Puis STOP.
+• Si NON : dis que le MCP n'est pas branché dans ce client et donne-moi la marche à suivre Desktop : (1) Quitter COMPLÈTEMENT Desktop (Cmd-Q) — l'app réécrit sa config en direct ; (2) éditer « ~/Library/Application Support/Claude/claude_desktop_config.json », fusionner sous mcpServers le bloc { "whatsapp-mcp": { "command": "/opt/homebrew/bin/node", "args": ["/CHEMIN/ABSOLU/VERS/whatsapp-mcp/src/index.js"] } } ; (3) rouvrir. Rappelle : chemin absolu vers node (pas de nvm/Homebrew dans le PATH de Desktop) ; pas de WHATSAPP_AUTH_DIR ; un seul client à la fois sur ./auth (sinon 440) → « npm run stop » avant. Puis STOP.
 • Si OUI : dis « MCP branché » et passe à la Phase A.
 
 — Phase A (statut & mode de consentement) —

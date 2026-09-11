@@ -155,7 +155,7 @@ justifie, est **orthogonal et cosmétique** : ça peut attendre.
 
 ### Brique partagée (piste, à arbitrer)
 
-Deux projets ont désormais cette brique : **whatsapp-group-mcp** (cette fiche, v2 signé —
+Deux projets ont désormais cette brique : **whatsapp-mcp** (cette fiche, v2 signé —
 pas encore implémenté ici) et **google-mcp-multi-account** (v2 livré côté `gwsa`, v1
 presence-check). Le helper Swift + le protocole défi/vérification mériteraient d'être
 extraits en **petite brique partagée** (un binaire + une lib de vérification Node/Python) :
@@ -189,7 +189,7 @@ reste bloqué côté ce repo, mais la brique cryptographique est prête à porte
   doigt — modèle pour `test/elicitation.js` ici).
 - **Compilation** : `swiftc` au runtime, pas de Xcode requis (même contrainte que 0013).
 
-### À adapter pour whatsapp-group-mcp
+### À adapter pour whatsapp-mcp
 
 | Aspect | google-mcp (`gwsa`) | whatsapp (cible) |
 |---|---|---|

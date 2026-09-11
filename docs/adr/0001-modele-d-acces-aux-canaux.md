@@ -179,7 +179,7 @@ sur ses propres données. Rien de plus.
 - Le LLM peut élargir son périmètre de lecture. Assumé, sous les 3 conditions ci-dessus.
 - `MessageStore` passe de 1 à N instances : le plafond mémoire devient
   `maxMessages × canaux`. À surveiller si le nombre de grants grandit.
-- Le nom du dépôt (`whatsapp-group-mcp`, singulier) devient inexact.
+- Le nom du dépôt (`whatsapp-mcp`, singulier) devient inexact.
 
 **À revisiter**
 - **Le jour où `send` revient** — contrat non négociable posé ici :
@@ -202,7 +202,7 @@ sur ses propres données. Rien de plus.
    plafond par session via env) n'est **pas** construit : le format de `settings.json` est
    versionné et la portée est explicite, la place reste donc ouverte pour
    `effectif = grants ∩ plafond` sans rupture. À rouvrir si le besoin se manifeste.
-2. **Renommer le dépôt** — **non**. `whatsapp-group-mcp` est inexact (singulier) mais le
+2. **Renommer le dépôt** — **non**. `whatsapp-mcp` est inexact (singulier) mais le
    renommage est cosmétique et touche un dépôt distant. Sans valeur d'usage. À rouvrir
    s'il devient public.
 

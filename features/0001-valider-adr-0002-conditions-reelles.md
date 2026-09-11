@@ -43,7 +43,7 @@ savent-ils demander un consentement que le LLM ne peut pas contourner ?** Si Tou
 n'y apparaît pas et que l'élicitation n'y est pas supportée, alors sur ces clients
 `allowlist.json` redevient le seul garde-fou — ce que la fiche 0008 documente.
 
-Constat de branchement (2026-09-03, à recouper) : `whatsapp-group` est **absent** de la
+Constat de branchement (2026-09-03, à recouper) : `whatsapp-mcp` est **absent** de la
 config Desktop (`npm run doctor`) ; il faut le rebrancher (`npm run install:client`,
 Desktop **quitté**, serveurs Code **arrêtés**) avant toute mesure.
 
@@ -106,7 +106,7 @@ Pré-vol obligatoire, dans un terminal **avant** d'ouvrir le client (un seul pro
 
 ```bash
 npm run stop
-npm run doctor   # confirme que whatsapp-group est branché dans le client visé
+npm run doctor   # confirme que whatsapp-mcp est branché dans le client visé
 ```
 
 La fiche est **franchie** quand les deux dernières lignes du relevé (Desktop, Cowork) sont
@@ -117,7 +117,7 @@ remplies et que tous les critères « à mesurer » sont cochés.
 Résultats de mesure (à compléter au fil des runs) :
 
 - **2026-07-18, Claude Code : élicitation OUI** ✅ — formulaire serveur observé sur
-  `grant_channel` (« MCP server "whatsapp-group" requests your input »). Question des
+  `grant_channel` (« MCP server "whatsapp-mcp" requests your input »). Question des
   ADR-0001/0002 tranchée pour Code.
 - **2026-07-18, capture + lecture E2E OK** dans Claude Code (« tout passe », Thomas).
 - **Non-automatisable par construction** : prouver qu'un humain a répondu. Un test qui
