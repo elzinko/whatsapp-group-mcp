@@ -52,8 +52,11 @@ problème → contexte → solution → implémentation — remplace les 6 chapi
 - Verdict fiche 0001 intégré (élicitation = pilier, mesurée OUI dans Claude Code).
 - Teaser final vers la fiche 0007 (élicitation signée / Touch ID) en guise d'ouverture.
 - **Bloquée le 2026-07-19** : contenu terminé et validé, en attente du **choix du support**
-  de publication (décision PO, pas de travail restant côté rédaction). Débloquer =
-  choisir le support, puis publier.
+  de publication (décision PO, pas de travail restant côté rédaction).
+- **Décision 2026-09-11 : on ne publie pas maintenant.** L'article reste dans `docs/articles/`,
+  **tenu à jour** au fil du produit (épilogue daté ajouté ce jour : droits par session, profils,
+  épic « accès par session »). « Bloquée » = garée volontairement, pas un obstacle. Débloquer
+  plus tard = choisir le support puis publier (probablement après le passage du repo en public).
 - Deux points à trancher au moment de publier :
   1. le repo `whatsapp-group-mcp` est **privé** → le lien cité dans l'article tombe dans
      le vide tant qu'il ne passe pas public ;
